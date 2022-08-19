@@ -1,2 +1,2 @@
 # CONNECT
-*CO*smological *N*eural *N*etwork *E*mulation of *C*LASS using *T*ensorFlow
+**CO**smological **N**eural **N**etwork **E**mulator of **C**LASS using **T**ensorFlow
