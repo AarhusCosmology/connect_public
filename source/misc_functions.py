@@ -106,11 +106,11 @@ def create_montepython_param(parameter_file,    # Parameter file from CONNECT
     from source.default_module import Parameters
     param = Parameters(parameter_file)
     
-    if not os.path.isdir(montepython_path+'/montepython_public/input/connect'):
-        os.mkdir(montepython_path+'/montepython_public/input/connect')
+    if not os.path.isdir(montepython_path+'/input/connect'):
+        os.mkdir(montepython_path+'/input/connect')
 
     with open(CONNECT_PATH+'/mp_plugin/param_templates/connect_lite.param.template','r') as f:
-        with open(montepython_path+f'/montepython_public/input/connect/{param.jobname}.param','w') as g:
+        with open(montepython_path+f'/input/connect/{param.jobname}.param','w') as g:
             for line in f:
                 g.write(line)
                 if '# Cosmological parameters list' in line:
@@ -161,7 +161,7 @@ def create_montepython_param(parameter_file,    # Parameter file from CONNECT
                         else:
                             scale = 1
                         g.write(f"data.parameters['{par}'] = [1, None, None, 0, {scale}, 'derived']\n")
-    return f'montepython_public/input/connect/{param.jobname}.param'
+    return f'input/connect/{param.jobname}.param'
 
 
 def Gelman_Rubin_log(param,#parameter_file,  # Parameter file from CONNECT

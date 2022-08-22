@@ -34,7 +34,7 @@ data.cosmo_arguments['output'] = 'mPk'
 data.cosmo_arguments['P_k_max_h/Mpc'] = 1.
 
 # Connect model name used by plugin
-data.cosmo_arguments['connect_model'] = massive_neutrinos_ini_N10000_bs512_e100
+data.cosmo_arguments['connect_model'] = 'model_name'
 
 #------ Mcmc parameters ----
 

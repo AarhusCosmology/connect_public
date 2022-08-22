@@ -9,4 +9,4 @@ else
      N_cpus_per_task=$SLURM_CPUS_PER_TASK
 fi
 
-echo -e "${N_tasks}\n${N_cpus_per_task}"
+echo "${N_tasks},${N_cpus_per_task}"

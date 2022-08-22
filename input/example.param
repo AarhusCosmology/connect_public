@@ -1,0 +1,51 @@
+# Parameter file for the example model
+
+# Specify the parameters for the model, their minimum value and their maximum value (as you would in CLASS) 
+#           | name              | min-value     | max-value      |
+#           |-------------------|---------------|----------------|
+parameters={'omega_b'        :  [ 0.014,          0.039          ],
+            'omega_cdm'      :  [ 1e-11,          0.25           ],
+            'H0'             :  [ 30,             120            ],
+            'ln10^{10}A_s'   :  [ 1,              5              ],
+            'n_s'            :  [ 0.7,            1.3            ],
+            'tau_reio'       :  [ 0.01,           0.4            ]}
+
+# Specify additional parameters
+train_ratio         = 0.95			# Amount of data used for training (rest is used for testing)
+val_ratio           = 0.05	      		# Amount of training data used for validation
+epochs              = 100	      		# Number of cycles/epochs during training
+batchsize           = 512	     		# Batchsize of data when training
+activation_function = 'alsing'	    		# Activation function - as defined in TensorFlow or source/custom_functions.py
+loss_function       = 'cosmic_variance'         # Loss function - as defined in TensorFlow or source/custom_functions.py
+N_hidden_layers     = 6		    		# Number of hidden layers in fully-connected architecture
+N_nodes		    = 512			# Number of nodes in each hidden layer
+output_Cl           = ['tt', 'te', 'ee']	# Cl spectra in output
+output_derived      = ['z_reio',   		# Derived parameters in output
+		       'Omega_Lambda', 
+		       'YHe', 
+		       'A_s', 
+		       'sigma8', 
+		       '100*theta_s'
+		       ]
+extra_input         = {'k_pivot': 0.05,		# Extra input to CLASS
+		       'N_ur':    2.0328,
+		       'N_ncdm':  1,
+		       'm_ncdm':  0.06,
+		       'T_ncdm':  0.71611,
+		       #'sBBN file': '/path/to/sBBN.dat'
+		       }
+
+
+# Sampling of training data can be done with the methods 'lhc' and 'iterative'. Some parameters are only usable wth the iterative method
+sampling = 'iterative'
+#initial_model = 'name_of_initial_model'            # Name of initial model to start the iterations
+montepython_path = '/path/to/montepython_public'    # Path to the montepython installation
+mp_tol=0.01
+iter_tol=0.01
+N_max_lines = 2*10**4
+keep_first_iteration = False
+
+N = 10**4					    # Amount of points in lhc. When using the iterative method this number refers to only the initial lhc
+jobname = 'lcdm_example'
+save_name = 'example'
+overwrite_model = False

@@ -3,18 +3,16 @@ output_dir="chains/connect_${1}_data"
 output_file="chains/connect_out/${1}.out"
 MPARGS=" -p ${2}"
 MPARGS+=" -o $output_dir"
-MPARGS+=" -c montepython_public/covmat/base2018TTTEEE_lite.covmat"
+MPARGS+=" -c covmat/base2018TTTEEE_lite.covmat"
 MPARGS+=" -N 5000000000"
-MPARGS+=" --conf connect.conf"
+MPARGS+=" --conf ${3}"
 MPARGS+=" -j fast -f 2.1 --silent"
 MPARGS+=" --update 1000"
 MPARGS+=" -T 5.0"
 rm -rf $output_dir
-source activate MontePythonEnvironment
-source planck2018/code/plc_3.0/plc-3.01/bin/clik_profile.sh
 
-mp_tol=$3
-node=$4
+mp_tol=$4
+node=$5
 
 if ! [ -z $node ]
 then
@@ -23,7 +21,9 @@ else
     MPI_ARGS="--oversubscribe -np 4"
 fi
 
-mpirun $MPI_ARGS python montepython_public/montepython/MontePython.py run $MPARGS > $output_file & pid=$!
+mkdir -p chains/connect_out
+
+mpirun $MPI_ARGS python montepython/MontePython.py run $MPARGS > $output_file & pid=$!
 
 job_running=true
 
@@ -61,4 +61,4 @@ do
         fi
     fi
 done
-conda deactivate
+

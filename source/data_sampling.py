@@ -4,15 +4,17 @@ from source.lhc import LatinHypercubeSampler
 from source.join_output import CreateSingleDataFile
 from source.train_network import Training
 import source.misc_functions as misc
+from source.default_module import Parameters
 import os
 import fileinput
 import shutil
 
 class Sampling():
-    def __init__(self, param, CONNECT_PATH):
-        self.param = param
+    def __init__(self, param_file, CONNECT_PATH):
+        self.param_file = param_file
+        self.param = Parameters(param_file)
         self.CONNECT_PATH = CONNECT_PATH
-        self.N_tasks, self.N_cpus_per_task = np.int64(sp.run(['./source/shell_scripts/number_of_tasks.sh'], stdout=sp.PIPE).stdout.split('\n'))
+        self.N_tasks, self.N_cpus_per_task = np.int64(sp.run(['./source/shell_scripts/number_of_tasks.sh'], stdout=sp.PIPE).stdout.decode('utf-8').split(','))
         if self.param.sampling == 'lhc':
             self.data_path = f'data/{self.param.jobname}/N-{self.param.N}'
         elif self.param.sampling == 'iterative':
@@ -45,8 +47,9 @@ class Sampling():
             lhc.run(self.CONNECT_PATH)
 
     def call_calc_models(self, sampling='lhc'):
-        sp.Popen(f"export OMP_NUM_THREADS={self.N_cpus_per_task}".split()).wait()
-        sp.Popen(f"mpirun -np {self.N_tasks - 1} -x OMP_NUM_THREADS python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.data_path}/log_connect.param {self.CONNECT_PATH} {sampling}".split()).wait()
+        sp.run(f"export OMP_NUM_THREADS={self.N_cpus_per_task}", shell=True)
+        sp.Popen(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.data_path}/log_connect.param {self.CONNECT_PATH} {sampling}".split()).wait()
+        sp.run("export OMP_NUM_THREADS=1", shell=True)
 
     def train_neural_network(self, sampling='lhc'):
         if sampling == 'lhc':
@@ -84,14 +87,14 @@ class Sampling():
                 print(line, end='')
         
         if self.mp_node != None:
-            sp.run(f'{self.CONNECT_PATH}/source/shell_scripts/run_montepython_iteration.sh {self.param.jobname} {MP_param_file} {self.param.mp_tol} {self.mp_node}', shell=True, cwd=self.param.montepython_path)
+            sp.run(f'{self.CONNECT_PATH}/source/shell_scripts/run_montepython_iteration.sh {self.param.jobname} {MP_param_file} {self.CONNECT_PATH}/mp_plugin/connect.conf {self.param.mp_tol} {self.mp_node}', shell=True, cwd=self.param.montepython_path)
         else:
-            sp.run(f'{self.CONNECT_PATH}/source/shell_scripts/run_montepython_iteration.sh {self.param.jobname} {MP_param_file} {self.param.mp_tol}', shell=True, cwd=self.param.montepython_path)
+            sp.run(f'{self.CONNECT_PATH}/source/shell_scripts/run_montepython_iteration.sh {self.param.jobname} {MP_param_file} {self.CONNECT_PATH}/mp_plugin/connect.conf {self.param.mp_tol}', shell=True, cwd=self.param.montepython_path)
 
     def compare_iterations(self,i):
         chain1=f"data/{self.param.jobname}/compare_iterations/chain__{i-1}.txt"
         chain2=f"data/{self.param.jobname}/compare_iterations/chain__{i}.txt"
-        output = sp.run(f'python2 {self.param.montepython_path}/montepython_public/montepython/MontePython.py info {chain1} {chain2} --noplot --minimal', shell=True, stdout=sp.PIPE).stdout.decode('utf-8')
+        output = sp.run(f'python2 {self.param.montepython_path}/montepython/MontePython.py info {chain1} {chain2} --noplot --minimal', shell=True, stdout=sp.PIPE).stdout.decode('utf-8')
         kill_iteration=misc.Gelman_Rubin_log(self.param,status=i,output=output)
         return kill_iteration
 
@@ -115,9 +118,12 @@ class Sampling():
         MP_param_file = misc.create_montepython_param(self.param_file,self.param.montepython_path)
         misc.Gelman_Rubin_log(self.param,status='initial')
         if self.param.initial_model == None:
+            print('No initial model given')
+            print(f'Calculating {self.param.N} initial CLASS models')
             self.latin_hypercube_sampling()
             misc.create_output_folders(self.param)
             self.call_calc_models(sampling='lhc')
+            print('Training neural network')
             model = self.train_neural_network(sampling='lhc')
         else:
             model = self.param.initial_model
@@ -128,7 +134,7 @@ class Sampling():
 
         i = 1
         while True:
-            print(f'Beginning iteration no. {i}')
+            print(f'\n\nBeginning iteration no. {i}')
             print(f'Running MCMC sampling no. {i}...')
             self.run_montepython_iteration(MP_param_file, model)
             print(f'MCMC sampling stopped since R-1 less than 0.01 has been reached')
@@ -138,7 +144,7 @@ class Sampling():
 
             shutil.copytree(self.param.montepython_path + f'/chains/connect_{self.param.jobname}_data', f'{self.CONNECT_PATH}/data/{self.param.jobname}/number_{i}')
             if i == 1 and not self.param.keep_first_iteration:
-                N_keep = 50#00
+                N_keep = 5000
                 keep_idx = 1
             else:
                 N_keep = self.param.N_max_lines
@@ -170,7 +176,7 @@ class Sampling():
                 print(f"Copied data from data/{self.param.jobname}/number_{i-1} into data/{self.param.jobname}/number_{i}")
             
             print("Training neural network")
-
+            
             model_name = self.train_neural_network(sampling='iterative')
             
             if kill_iteration:
