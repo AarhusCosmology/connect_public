@@ -73,9 +73,8 @@ if keyword == 'create':
     from source.data_sampling import Sampling
     s = Sampling(param_file, CONNECT_PATH)
 
-    print(s.N_tasks)
-    print(s.N_cpus_per_task)
-
+    if not os.path.isdir(path):
+        os.mkdir(path)
     with open(path+'output.log', 'w') as sys.stdout:
         if param.sampling == 'iterative':
             s.create_iterative_data()
