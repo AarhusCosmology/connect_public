@@ -227,7 +227,9 @@ else:
             params[par_name] = model[i]
 
         try:
-            cosmo = Class(params)
+            cosmo = Class()
+            cosmo.set(params)
+            cosmo.compute()
             if len(param.output_bg) > 0:
                 bg = cosmo.get_background()
             if len(param.output_th) > 0:
@@ -245,7 +247,7 @@ else:
             print('The following model failed in CLASS:')
             print(params)
             success = False
-    
+            
         if success:
             # Write data to data files
             for out_dir, output in zip(out_dirs_Cl, param.output_Cl):
@@ -306,15 +308,16 @@ else:
             except:
                 pass
 
-            par_out = []
-            for output in param.output_derived:
-                par_out.append(der[output])
-            with open(out_dir_derived, 'a') as f:
-                for i, p in enumerate(par_out):
-                    if i != len(par_out)-1:
-                        f.write(str(p)+'\t')
-                    else:
-                        f.write(str(p)+'\n')
+            if len(param.output_derived) > 0:
+                par_out = []
+                for output in param.output_derived:
+                    par_out.append(der[output])
+                with open(out_dir_derived, 'a') as f:
+                    for i, p in enumerate(par_out):
+                        if i != len(par_out)-1:
+                            f.write(str(p)+'\t')
+                        else:
+                            f.write(str(p)+'\n')
 
             for out_dir, output in zip(out_dirs_bg, param.output_bg):
                 par_out = bg[output]
