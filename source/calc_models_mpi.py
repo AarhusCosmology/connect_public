@@ -30,11 +30,10 @@ elif sampling == 'lhc':
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
+
 N_slaves = comm.Get_size()-1
 
 get_slave = itertools.cycle(range(1,N_slaves+1))
-
-
 
 ## rank == 0 (master)
 if rank == 0:
@@ -106,7 +105,6 @@ if rank == 0:
                 data[i] += param.parameters[name][0]
         data = data.T
 
-
     sleep_short = 0.0001
     sleep_long = 0.1
     sleep_dict = {}
@@ -123,7 +121,6 @@ if rank == 0:
             sleep_dict[str(r)] = 1
         else:
             sleep_dict[str(r)] = 0
-
         if all(value == 0 for value in sleep_dict.values()):
             time.sleep(sleep_long)
         else:
@@ -133,10 +130,9 @@ if rank == 0:
         comm.send('Done', dest=r)
 
 
-
 ## rank > 0 (slaves)
 else:
-    # Directories for input (model parameters) and output (Cl data) data
+# Directories for input (model parameters) and output (Cl data) data
     in_dir           = directory + f'/model_params_data/model_params_{rank}.txt'
     out_dirs_Cl      = []
     out_dirs_Pk      = []
@@ -186,16 +182,13 @@ else:
             f.write(derived_header)
     except:
         pass
-
-
     # Iterate over each model
     while True:
         comm.send('I am done', dest=0)
         model = comm.recv(source=0)
         if type(model).__name__ == 'str':
             break
-
-        # Set required CLASS parameters
+       # Set required CLASS parameters
         params = {}
         if len(param.output_Cl) > 0:
             params['output']            = 'tCl,lCl'
@@ -225,9 +218,10 @@ else:
         params.update(param.extra_input)
         for i, par_name in enumerate(param_names):
             params[par_name] = model[i]
-
         try:
-            cosmo = Class(params)
+            cosmo = Class()
+            cosmo.set(params)
+            cosmo.compute()
             if len(param.output_bg) > 0:
                 bg = cosmo.get_background()
             if len(param.output_th) > 0:
@@ -239,13 +233,14 @@ else:
                     cls = cosmo.lensed_cl_computed() # Only available in CLASS++
                 except:
                     cls = get_computed_cls(cosmo)
+                
                 ell = cls['ell'][2:]
             success = True
         except:
             print('The following model failed in CLASS:')
             print(params)
             success = False
-    
+                
         if success:
             # Write data to data files
             for out_dir, output in zip(out_dirs_Cl, param.output_Cl):
@@ -340,8 +335,5 @@ else:
                         f.write(str(m)+'\t')
                     else:
                         f.write(str(m)+'\n')
-
-
-
 MPI.Finalize()
 sys.exit(0)
