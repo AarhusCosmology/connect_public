@@ -48,7 +48,7 @@ class Sampling():
 
     def call_calc_models(self, sampling='lhc'):
         sp.run(f"export OMP_NUM_THREADS={self.N_cpus_per_task}", shell=True)
-        sp.Popen(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.data_path}/log_connect.param {self.CONNECT_PATH} {sampling}".split()).wait()
+        sp.Popen(f"mpirun -np {self.N_tasks - 1} --oversubscribe python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.data_path}/log_connect.param {self.CONNECT_PATH} {sampling}".split()).wait()
         sp.run("export OMP_NUM_THREADS=1", shell=True)
 
     def train_neural_network(self, sampling='lhc'):
