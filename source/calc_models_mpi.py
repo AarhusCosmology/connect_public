@@ -247,7 +247,7 @@ else:
             print('The following model failed in CLASS:')
             print(params)
             success = False
-            
+
         if success:
             # Write data to data files
             for out_dir, output in zip(out_dirs_Cl, param.output_Cl):
