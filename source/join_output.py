@@ -86,17 +86,18 @@ class CreateSingleDataFile():
                             for line in g:
                                 f.write(line)
                                     
-        i = 0
-        with open(self.path + 'derived.txt','w') as f:
-            for filename in sorted(os.listdir(self.path + 'derived_data')):
-                if filename.endswith('.txt'):
-                    with open(self.path + 'derived_data/'+filename,'r') as g:
-                        for line in g:
-                            if line[0] == '#' and i == 0:
-                                f.write(line)
-                                i = 1
-                            elif line[0] != '#':
-                                f.write(line)
+        if len(self.param.output_derived) > 0:
+            i = 0
+            with open(self.path + 'derived.txt','w') as f:
+                for filename in sorted(os.listdir(self.path + 'derived_data')):
+                    if filename.endswith('.txt'):
+                        with open(self.path + 'derived_data/'+filename,'r') as g:
+                            for line in g:
+                                if line[0] == '#' and i == 0:
+                                    f.write(line)
+                                    i = 1
+                                elif line[0] != '#':
+                                    f.write(line)
 
         i = 0
         with open(self.path + 'model_params.txt','w') as f:
