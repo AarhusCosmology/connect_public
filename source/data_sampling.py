@@ -179,7 +179,7 @@ class Sampling():
             
             model_name = self.train_neural_network(sampling='iterative')
             
-            if kill_iteration:
+            if kill_iteration and N_accepted < 0.1*N_keep:
                 print(f"Final model is {model_name}")
                 break
             else:
