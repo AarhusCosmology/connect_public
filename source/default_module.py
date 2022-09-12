@@ -12,11 +12,6 @@ class Parameters():
 
         self.jobname              = getattr(param, 'jobname',              jobname            )
         self.N                    = getattr(param, 'N',                    10000              )
-        self.N_cpu                = getattr(param, 'N_cpu',                100                )
-        self.mem_create           = getattr(param, 'mem_create',           '50G'              )
-        self.walltime_create      = getattr(param, 'walltime_create',      '20:00:00'         )
-        self.mem_train            = getattr(param, 'mem_train',            '20G'              )
-        self.walltime_train       = getattr(param, 'walltime_train',       '10:00:00'         )
         self.train_ratio          = getattr(param, 'train_ratio',          0.9                )
         self.val_ratio            = getattr(param, 'val_ratio',            0.01               )
         self.save_name            = getattr(param, 'save_name',            None               )

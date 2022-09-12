@@ -23,7 +23,7 @@ fi
 
 mkdir -p chains/connect_out
 
-mpirun $MPI_ARGS python montepython/MontePython.py run $MPARGS > $output_file & pid=$!
+mpirun $MPI_ARGS python montepython/MontePython.py run $MPARGS &> $output_file & pid=$!
 
 job_running=true
 
