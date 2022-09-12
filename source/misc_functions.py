@@ -313,14 +313,14 @@ def filter_chains(param,#parameter_file,   # Parameter file from CONNECT
 
 
 def discard_oversampled_points(file_old_data,    # model_params.txt file with all the data from previous iterations
-                               parameter_file,   # Parameter file from CONNECT
+                               param,#parameter_file,   # Parameter file from CONNECT
                                iter_num          # Current iteration number
                            ):
 
     num_points_in_vicinity = 10
 
-    from source.default_module import Parameters
-    param = Parameters(parameter_file)
+    #from source.default_module import Parameters
+    #param = Parameters(parameter_file)
 
     with open(file_old_data, 'r') as f:
         lines=list(f)
