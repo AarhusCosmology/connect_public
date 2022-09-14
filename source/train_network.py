@@ -6,7 +6,7 @@ import numpy as np
 import pickle
 import os
 
-class Training(LossFunctions):
+class Training():
 
     def __init__(self, param, CONNECT_PATH):
         self.param = param
@@ -342,21 +342,27 @@ class Training(LossFunctions):
 
 
         ### Define strategy for training on multiple GPUs ###
-        self.mirrored_strategy = tf.distribute.MirroredStrategy(
-            devices=["/gpu:0","/gpu:1"],
-            cross_device_ops=tf.distribute.HierarchicalCopyAllReduce())
-
-        #options = tf.data.Options()
-        #options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
-        #self.train_dataset = self.train_dataset.with_options(options)
+        if len(tf.config.list_physical_devices('GPU')) > 0:
+            self.training_strategy = tf.distribute.MirroredStrategy(
+                devices=["/gpu:0","/gpu:1"],
+                cross_device_ops=tf.distribute.HierarchicalCopyAllReduce()).scope()
+        else:
+            class NoneStrategy(object):
+                def __init__(self):
+                    pass
+                def __enter__(self):
+                    pass
+                def __exit__(self,a,b,c):
+                    pass
+            self.training_strategy = NoneStrategy()
 
 
         ### Set loss function ###
         ell_weights = np.concatenate(ell_weights)
-        super(Training, self).__init__(ell_weights)
-        if callable(getattr(self, self.param.loss_function, None)):
+        Loss = LossFunctions(ell_weights) 
+        if callable(getattr(Loss, self.param.loss_function, None)):
             _locals = {}
-            exec('loss_fun = self.'+self.param.loss_function, locals(), _locals)
+            exec('loss_fun = Loss.'+self.param.loss_function, locals(), _locals)
             self.loss_fun = _locals['loss_fun']
         else:
             self.loss_fun = self.param.loss_function
@@ -373,7 +379,14 @@ class Training(LossFunctions):
         else:
             out_act = 0
 
-        with self.mirrored_strategy.scope():
+        adam = tf.keras.optimizers.Adam(learning_rate=0.001,
+                                        beta_1=0.9,
+                                        beta_2=0.999,
+                                        epsilon=1e-05,
+                                        amsgrad=False,
+                                        name='Adam')
+
+        with self.training_strategy:
             self.model = Dense_model(self.param.N_nodes, 
                                      len(self.param.parameters.keys()),
                                      self.output_dim,
@@ -381,12 +394,13 @@ class Training(LossFunctions):
                                      activation = self.param.activation_function,
                                      num_hidden_layers = self.param.N_hidden_layers,
                                      output_info = out_act)
-            self.model.compile(optimizer='adam',
+            self.model.compile(optimizer=adam,
                                loss=self.loss_fun,
                                metrics=['accuracy'])
 
         if epochs != None:
             self.param.epochs = epochs
+
         self.history = self.model.fit(self.train_dataset, epochs=self.param.epochs, validation_data=self.val_dataset)
         
         test_loss, test_acc = self.model.evaluate(self.test_dataset, verbose=2)
