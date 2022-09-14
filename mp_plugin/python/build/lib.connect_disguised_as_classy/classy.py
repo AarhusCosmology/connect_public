@@ -18,7 +18,12 @@ from classy import CosmoSevereError, CosmoComputationError
 
 class Class(real_classy.Class):
     def __init__(self, input_parameters=None, model_name=None):
-        super(Class, self).__init__(input_parameters)
+        try:
+            self.model_name = input_parameters.pop('connect_model')
+        except:
+            pass
+        super(Class, self).__init__()
+        super(Class, self).set(input_parameters)
         if not model_name == None:
             self.model_name = model_name
         self._model_name = model_name
