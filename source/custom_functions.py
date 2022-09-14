@@ -35,6 +35,9 @@ class ActivationFunctions():
             trainable=True,
         )
 
+        self.params = {'alsing' : ['beta', 'gamma'],
+                       'nygaard': ['alpha','beta','gamma']}
+
     def alsing(self, x):
         # Custom activation function - see arXiv:1911.11778
         exp_term = tf.math.exp(-tf.math.multiply(self.beta,x))
