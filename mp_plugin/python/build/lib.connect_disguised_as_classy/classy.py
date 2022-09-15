@@ -17,7 +17,7 @@ from classy import CosmoSevereError, CosmoComputationError
 
 
 class Class(real_classy.Class):
-    def __init__(self, input_parameters=None, model_name=None):
+    def __init__(self, input_parameters={}, model_name=None):
         try:
             self.model_name = input_parameters.pop('connect_model')
         except:

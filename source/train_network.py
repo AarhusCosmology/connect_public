@@ -1,5 +1,6 @@
 from source.custom_functions import LossFunctions
 from source.architecture.sequential_models import Dense_model
+import source.callbacks as cb
 from scipy.interpolate import CubicSpline
 import tensorflow as tf
 import numpy as np
@@ -379,29 +380,44 @@ class Training():
         else:
             out_act = 0
 
-        adam = tf.keras.optimizers.Adam(learning_rate=0.001,
-                                        beta_1=0.9,
-                                        beta_2=0.999,
-                                        epsilon=1e-05,
-                                        amsgrad=False,
-                                        name='Adam')
-
-        with self.training_strategy:
-            self.model = Dense_model(self.param.N_nodes, 
-                                     len(self.param.parameters.keys()),
-                                     self.output_dim,
-                                     normalizer = self.normalizer,
-                                     activation = self.param.activation_function,
-                                     num_hidden_layers = self.param.N_hidden_layers,
-                                     output_info = out_act)
-            self.model.compile(optimizer=adam,
-                               loss=self.loss_fun,
-                               metrics=['accuracy'])
-
         if epochs != None:
             self.param.epochs = epochs
 
-        self.history = self.model.fit(self.train_dataset, epochs=self.param.epochs, validation_data=self.val_dataset)
+        adam = tf.keras.optimizers.Adam(learning_rate=0.001,
+                                        beta_1=0.9,
+                                        beta_2=0.999,
+                                        epsilon=1e-5,
+                                        amsgrad=False,
+                                        name='Adam')
+
+        self.training_success = False
+        training_try_number = 0
+        while not self.training_success:
+            # beginning of while loop
+            training_try_number += 1
+
+            with self.training_strategy:
+                self.model = Dense_model(self.param.N_nodes, 
+                                         len(self.param.parameters.keys()),
+                                         self.output_dim,
+                                         normalizer = self.normalizer,
+                                         activation = self.param.activation_function,
+                                         num_hidden_layers = self.param.N_hidden_layers,
+                                         output_info = out_act)
+
+                self.model.compile(optimizer=adam,
+                                   loss=self.loss_fun,
+                                   metrics=['accuracy'])
+
+            self.history = self.model.fit(self.train_dataset,
+                                          epochs=self.param.epochs,
+                                          validation_data=self.val_dataset,
+                                          callbacks=[cb.CheckNaN(self, success_param_name='training_success')])
+
+            if training_try_number == 3:
+                raise RuntimeError('Training failed 3 times due to NaN loss. Try adjusting the hyperparameters of the optimizer')
+            # end of while loop
+            
         
         test_loss, test_acc = self.model.evaluate(self.test_dataset, verbose=2)
         print('\nTest accuracy:', test_acc)
