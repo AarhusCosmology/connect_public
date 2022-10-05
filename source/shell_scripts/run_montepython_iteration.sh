@@ -16,9 +16,9 @@ node=$5
 
 if ! [ -z $node ]
 then
-    MPI_ARGS="--oversubscribe -np 4 --host $node"
+    MPI_ARGS=" -np 4 --host $node"
 else
-    MPI_ARGS="--oversubscribe -np 4"
+    MPI_ARGS=" -np 4"
 fi
 
 mkdir -p chains/connect_out

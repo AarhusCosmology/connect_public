@@ -23,6 +23,7 @@ class Sampling():
         self.mp_node = None
         if slurm_bool:
             self.mp_node = misc.get_node_with_most_cpus()
+        os.environ["OMPI_MCA_rmaps_base_oversubscribe"] = "1"
 
     def copy_param_file(self):
         os.system(f"cp {self.CONNECT_PATH+'/'+self.param_file} {self.CONNECT_PATH+'/'+self.data_path+'/log_connect.param'}") 
@@ -33,7 +34,6 @@ class Sampling():
                     jobname_specified = True
             if not jobname_specified:
                 f.write(f"\njobname = '{self.param.jobname}'")
-
 
     def create_lhc_data(self):
         self.latin_hypercube_sampling()
@@ -47,9 +47,9 @@ class Sampling():
             lhc.run(self.CONNECT_PATH)
 
     def call_calc_models(self, sampling='lhc'):
-        sp.run(f"export OMP_NUM_THREADS={self.N_cpus_per_task}", shell=True)
-        sp.Popen(f"mpirun -np {self.N_tasks - 1} --oversubscribe python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.data_path}/log_connect.param {self.CONNECT_PATH} {sampling}".split()).wait()
-        sp.run("export OMP_NUM_THREADS=1", shell=True)
+        os.environ["export OMP_NUM_THREADS"] = str({self.N_cpus_per_task})
+        sp.Popen(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.data_path}/log_connect.param {self.CONNECT_PATH} {sampling}".split()).wait()
+        os.environ["export OMP_NUM_THREADS"] = "1"
 
     def train_neural_network(self, sampling='lhc'):
         if sampling == 'lhc':
@@ -106,7 +106,18 @@ class Sampling():
                          if line[0] != '#' and line.strip())
         return count
 
+    def check_montepython_version(self):
+        with open(self.param.montepython_path + '/VERSION','r') as f:
+            version = list(f)[0].strip()
+        if int(version.split('.')[0]) < 3:
+            err_msg = f'Your version of MontePython is {version}, which is not compatible with python 3. Your MontePython version must be at least 3.0'
+            print(err_msg, flush=True)
+            raise NotImplementedError(err_msg)
+        else:
+            print(f'Your version of MontePython is {version}', flush=True)
+
     def create_iterative_data(self):
+        self.check_montepython_version()
         if not os.path.isdir(f"data/{self.param.jobname}"):
             os.system(f"mkdir data/{self.param.jobname}")
             os.system(f"mkdir data/{self.param.jobname}/compare_iterations")
@@ -118,29 +129,29 @@ class Sampling():
         MP_param_file = misc.create_montepython_param(self.param_file,self.param.montepython_path)
         misc.Gelman_Rubin_log(self.param,status='initial')
         if self.param.initial_model == None:
-            print('No initial model given')
-            print(f'Calculating {self.param.N} initial CLASS models')
+            print('No initial model given', flush=True)
+            print(f'Calculating {self.param.N} initial CLASS models', flush=True)
             self.latin_hypercube_sampling()
             misc.create_output_folders(self.param)
             self.call_calc_models(sampling='lhc')
-            print('Training neural network')
+            print('Training neural network', flush=True)
             model = self.train_neural_network(sampling='lhc')
         else:
             model = self.param.initial_model
         keep_idx = 0
         kill_iteration = False
 
-        print(f'Initial model is {model}')
+        print(f'Initial model is {model}', flush=True)
 
         i = 1
         while True:
-            print(f'\n\nBeginning iteration no. {i}')
-            print(f'Running MCMC sampling no. {i}...')
+            print(f'\n\nBeginning iteration no. {i}', flush=True)
+            print(f'Running MCMC sampling no. {i}...', flush=True)
             self.run_montepython_iteration(MP_param_file, model)
-            print(f'MCMC sampling stopped since R-1 less than 0.01 has been reached')
+            print(f'MCMC sampling stopped since R-1 less than {self.param.mp_tol} has been reached', flush=True)
 
             N_acc = self.count_lines_in_dir(os.path.join(self.param.montepython_path,f'chains/connect_{self.param.jobname}_data'))
-            print(f'Number of accepted steps: {N_acc}')
+            print(f'Number of accepted steps: {N_acc}', flush=True)
 
             shutil.copytree(self.param.montepython_path + f'/chains/connect_{self.param.jobname}_data', f'{self.CONNECT_PATH}/data/{self.param.jobname}/number_{i}')
             if i == 1 and not self.param.keep_first_iteration:
@@ -151,37 +162,37 @@ class Sampling():
 
             N_keep = misc.filter_chains(self.param,f'data/{self.param.jobname}/number_{i}',N_keep,i)
 
-            print(f'Keeping only last {N_keep} of the accepted Markovian steps')
+            print(f'Keeping only last {N_keep} of the accepted Markovian steps', flush=True)
 
-            print('Comparing latest iterations...')
+            print('Comparing latest iterations...', flush=True)
             if i > 1:
                 kill_iteration = self.compare_iterations(i)
-                if kill_iteration:
-                    print(f"iteration {i} will be the last since convergence in data has been reached")
-
             
             if i > keep_idx + 1:
                 model_params=f"data/{self.param.jobname}/number_{i-1}/model_params.txt"
                 N_accepted=misc.discard_oversampled_points(model_params,self.param,i)
-                print(f"Accepted $N_accepted points out of {N_keep}")
+                print(f"Accepted {N_accepted} points out of {N_keep}", flush=True)
             else:
                 N_accepted=N_keep
+
+            if kill_iteration and N_accepted < 0.1*N_keep:
+                print(f"Iteration {i} will be the last since convergence in data has been reached", flush=True)
             
-            print(f'Calculating {N_accepted} CLASS models')
+            print(f'Calculating {N_accepted} CLASS models', flush=True)
             misc.create_output_folders(self.param, iter_num=i, reset=False)
             self.call_calc_models(sampling='iterative')
             misc.join_data_files(self.param)
             if i > keep_idx + 1:
                 misc.combine_iterations_data(self.param, i)
-                print(f"Copied data from data/{self.param.jobname}/number_{i-1} into data/{self.param.jobname}/number_{i}")
+                print(f"Copied data from data/{self.param.jobname}/number_{i-1} into data/{self.param.jobname}/number_{i}", flush=True)
             
-            print("Training neural network")
+            print("Training neural network", flush=True)
             
             model_name = self.train_neural_network(sampling='iterative')
             
             if kill_iteration and N_accepted < 0.1*N_keep:
-                print(f"Final model is {model_name}")
+                print(f"Final model is {model_name}", flush=True)
                 break
             else:
-                print(f"New model is {model_name}")
+                print(f"New model is {model_name}", flush=True)
                 i += 1
