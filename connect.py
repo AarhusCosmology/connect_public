@@ -65,9 +65,6 @@ path = CONNECT_PATH + f'/data/{param.jobname}/'
 #####################################
 # ____________ create _____________ #
 #####################################
-#if keyword == 'testing':
-#    from source.data_sampling import Sampling
-#    s=Sampling(param_file,CONNECT_PATH)
 
 if keyword == 'create':
     from source.data_sampling import Sampling
