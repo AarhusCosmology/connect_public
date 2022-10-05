@@ -5,9 +5,10 @@ from scipy.interpolate import CubicSpline
 import warnings
 import os
 import sys
-from time import time
+from pathlib import Path
 
-CONNECT_PATH = os.path.realpath(os.path.dirname(__file__)) + '/../../../../'
+FILE_PATH = os.path.realpath(os.path.dirname(__file__))
+CONNECT_PATH = Path(FILE_PATH).parents[3]
 
 p_backup = sys.path.pop(0)
 m_backup = sys.modules.pop('classy')
@@ -18,6 +19,7 @@ from classy import CosmoSevereError, CosmoComputationError
 
 class Class(real_classy.Class):
     def __init__(self, input_parameters={}, model_name=None):
+        self.model = None
         try:
             self.model_name = input_parameters.pop('connect_model')
         except:
@@ -27,16 +29,19 @@ class Class(real_classy.Class):
         if not model_name == None:
             self.model_name = model_name
         self._model_name = model_name
+
             
-        
     @property
     def model_name(self):
         return self._model_name
 
+
     @model_name.setter
     def model_name(self, new_name):
-        self._model_name = new_name
-        self.load_model(model_name=new_name)
+        if self.model == None:
+            self._model_name = new_name
+            self.load_model(model_name=new_name)
+
 
     def load_model(self, model_name=None):
         if not model_name == None:
@@ -47,11 +52,11 @@ class Class(real_classy.Class):
             else:
                 name = self.model_name
         try:
-            self.model = tf.keras.models.load_model(CONNECT_PATH+'trained_models/'+name, compile=False)
+            self.model = tf.keras.models.load_model(os.path.join(CONNECT_PATH,'trained_models',name), compile=False)
         except:
             raise NameError(f"No trained model by the name of '{name}'")
 
-        with open(CONNECT_PATH+'trained_models/'+name+'/output_info.pkl', 'rb') as f:
+        with open(os.path.join(CONNECT_PATH,'trained_models',name,'output_info.pkl'), 'rb') as f:
             self.output_info = pkl.load(f)
 
         self.param_names = self.output_info['input_names']
@@ -115,7 +120,7 @@ class Class(real_classy.Class):
                         'm_ncdm': 0.03,
                         'deg_ncdm': 0.8}
 
-        # Initialize calculations (first one is always slower) 
+        # Initialize calculations (first one is always slower due to internal graph execution) 
         _params = []
         for par_name in self.param_names:
             _params.append(self.default[par_name])
@@ -126,8 +131,14 @@ class Class(real_classy.Class):
         del _output_predict
 
 
-    def set(self, input_parameters):
-        if not input_parameters == None:
+    def set(self, *args, **kwargs):
+        if len(args) == 1 and not bool(kwargs):
+            input_parameters = dict(args[0])
+        elif len(args) == 0 and bool(kwargs):
+            input_parameters = kwargs
+        else:
+            raise ValueError('Bad call!')
+        if bool(input_parameters):
             ip_keys = list(input_parameters.keys())
             for par in ip_keys:
                 if par[-12:] == '_log10_prior':
@@ -137,7 +148,7 @@ class Class(real_classy.Class):
                 self.model_name = input_parameters.pop('connect_model')
             except:
                 pass
-        super(Class, self).set(input_parameters)
+            super(Class, self).set(input_parameters)
 
 
     def compute(self, level=None):
@@ -148,9 +159,13 @@ class Class(real_classy.Class):
                     params.append(self.pars[par_name])
                 elif 'A_s' in self.pars and par_name == 'ln10^{10}A_s':
                     params.append(np.log(self.pars['A_s']*1e+10))
+                elif 'ln10^{10}A_s' in self.pars and par_name == 'A_s':
+                    params.append(np.exp(self.pars['ln10^{10}A_s'])*1e-10)
                 else:
-                    params.append(self.default[par_name])
-                    #raise KeyError('Mismatch between CONNECT and Monte Python parameters.')
+                    try:
+                        params.append(self.default[par_name])
+                    except:
+                        raise KeyError(f'The parameter {par_name} is not listed with a default value. You can add one in the load_model method in file: {os.path.join(CONNECT_PATH,__file__)}')
             v = tf.constant([params])
         
             self.output_predict = self.normalize_output(self.model(v).numpy()[0])
@@ -167,7 +182,7 @@ class Class(real_classy.Class):
         if 'l_max_scalars' in self.pars.keys():
             lmax = self.pars['l_max_scalars']
 
-        spectra = ['tt','ee','bb','pp','te','tb','eb']
+        spectra = ['tt','ee','bb','te','pp','tp']
         out_dict = {}
         ell = np.array(list(range(lmax+1)))
         for output in self.output_Cl:
@@ -182,7 +197,7 @@ class Class(real_classy.Class):
                 Cl_computed = Cl_computed
                 Cl_spline = CubicSpline(self.ell_computed, Cl_computed, bc_type='natural', extrapolate=True)
                 Cl = Cl_spline(ell)
-            out_dict[output] = np.insert(Cl[1:]*2*np.pi/(ell[1:]*(ell[1:]+1)), 0, 0.0) # Convert back to raw form
+            out_dict[output] = np.insert(Cl[1:]*2*np.pi/(ell[1:]*(ell[1:]+1)), 0, 0.0) # Convert back to Cl form
 
         out_dict['ell'] = ell
         null_out = np.ones(len(ell), dtype=np.float32) * 1e-15
@@ -197,6 +212,49 @@ class Class(real_classy.Class):
         return self.lensed_cl(lmax)
 
 
+    def T_cmb(self):
+        if hasattr(self, 'Tcmb'):
+            return self.Tcmb
+
+        kb = 1.3806504e-23
+        hp = 6.62606896e-34
+        c  = 2.99792458e8
+        G  = 6.67428e-11
+        _Mpc_over_m_ = 3.085677581282e22
+        sigma_B      = 2*np.pi**5 * kb**4 / (15. * hp**3 * c**2)
+        store_value = False
+
+        if 'omega_g' in self.pars:
+            omega_g = self.pars['omega_g']
+            if 'omega_g' not in self.param_names:
+                store_value = True
+
+        elif 'Omega_g' in self.pars:
+            if 'H0' in self.pars:
+                h = H0/100
+            else:
+                super(Class,self).compute(level=['background'])
+                if 'Omega_g' not in self.param_names:
+                    self.Tcmb = super(Class,self).T_cmb()
+                return super(Class,self).T_cmb()
+            omega_g = self.pars['Omega_g']*h**2
+            if 'Omega_g' not in self.param_names and 'H0' not in self.param_names:
+                store_value = True
+
+        elif 'T_cmb' in self.pars:
+            if 'T_cmb' not in self.param_names:
+                self.Tcmb = self.pars['T_cmb']
+            return self.pars['T_cmb']
+
+        else:
+            self.Tcmb = 2.7255 # default in CLASS
+            return self.Tcmb
+
+        if store_value:
+            self.Tcmb = pow( 3*omega_g*c**3*1.e10 / (sigma_B*_Mpc_over_m_**2*32*np.pi*G), 1/4)
+        return pow( 3*omega_g*c**3*1.e10 / (sigma_B*_Mpc_over_m_**2*32*np.pi*G), 1/4)
+        
+
     def get_current_derived_parameters(self, names):
         if not hasattr(self, 'output_predict'):
             self.compute()
@@ -208,6 +266,7 @@ class Class(real_classy.Class):
         if len(class_names) > 0:
             warnings.warn("Warning: Derived parameter not emulated by CONNECT. CLASS is used instead.")
             pars_update={}
+            level='thermodynamics'
 
             if 'output' in self.pars:
                 if not 'mPk' in self.pars['output']:
@@ -220,10 +279,11 @@ class Class(real_classy.Class):
                 pars_update['output'] = 'mPk'
             if any('sigma' in name for name in class_names):
                 pars_update['P_k_max_h/Mpc'] = 1.
+                level='lensing'
 
             if not pars_update == {}:
                 super(Class,self).set(pars_update)
-                super(Class,self).compute()
+                super(Class,self).compute(level=[level])
 
         out_dict = super(Class,self).get_current_derived_parameters(list(class_names))
         for name in names:
