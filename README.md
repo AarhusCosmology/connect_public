@@ -1,6 +1,6 @@
 <div align="center">
 
-![connect_logo.pdf](https://github.com/AarhusCosmology/connect_public/files/9735106/connect_logo.pdf)
+![connect_logo](https://user-images.githubusercontent.com/61239752/194646729-59ece7fb-f021-4467-ac2f-682b41252bfa.svg)
 
 **CO**smological **N**eural **N**etwork **E**mulator of **C**LASS using **T**ensorFlow
 
