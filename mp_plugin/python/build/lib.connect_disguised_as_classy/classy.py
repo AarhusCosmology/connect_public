@@ -259,6 +259,9 @@ class Class(real_classy.Class):
         if not hasattr(self, 'output_predict'):
             self.compute()
 
+        if 'theta_s_100' in names:
+            names = [name if name != 'theta_s_100' else '100*theta_s' for name in names]
+
         names = set(names)
         class_names = names - set(self.output_derived)
         names -= class_names

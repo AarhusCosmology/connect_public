@@ -1,0 +1,14 @@
+# This likelihood corresponds to the Planck 2018 low_l EE simall data (only EE mode polarisation)
+
+# Grab the clik version of the lowl_EE likelihood
+Planck_lowl_EE_connect.path_clik = os.path.join(data.path['clik'], '../../../baseline/plc_3.0/low_l/simall/simall_100x143_offlike5_EE_Aplanck_B.clik')
+
+# note concerning the Planck 2018 likelihood:
+# This likelihood has a nuisance parameter A_planck that should be declared in
+# your input parameter file.
+# Usually this likelihood is used in combination with the highl likelihood,
+# which imposes a gaussian prior on this nuisance parameter.
+# If you run this likelihood alone (without any highl one), you need to
+# impose the gaussian prior here. In that case, uncomment the two lines:
+#Planck_highl.A_planck_prior_center            = 1
+#Planck_highl.A_planck_prior_variance          = 0.0025

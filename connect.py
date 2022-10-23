@@ -67,16 +67,36 @@ path = CONNECT_PATH + f'/data/{param.jobname}/'
 #####################################
 
 if keyword == 'create':
+    os.system(f'rm -f {path}output.log')
+
+    from source.misc_functions import create_output_folders
+    create_output_folders(param) 
+
     from source.data_sampling import Sampling
     s = Sampling(param_file, CONNECT_PATH)
 
     if not os.path.isdir(path):
         os.mkdir(path)
-    with open(path+'output.log', 'w') as sys.stdout:
-        if param.sampling == 'iterative':
+    with open(os.path.join(CONNECT_PATH,'source/logo.txt'),'r') as f:
+        log_string = '-'*62+'\n\n\n' +                        \
+                     f.read()+'\n' +                          \
+                     '-'*62+'\n\n' +                          \
+                     'Running CONNECT\n' +                    \
+                    f'Parameter file     :  {param_file}\n' + \
+                     'Mode               :  Create'
+
+    if param.sampling == 'iterative':
+        with open(path+'output.log', 'w') as sys.stdout:
+            print(log_string, flush=True)
+            print('Sampling method    :  Iterative', flush=True)
+            print('\n'+'-'*62+'\n', flush=True)
             s.create_iterative_data()
             
-        elif param.sampling == 'lhc':
+    elif param.sampling == 'lhc':
+        with open(path+f'N-{param.N}/output.log', 'w') as sys.stdout:
+            print(log_string, flush=True)
+            print('Sampling method    :  Latin Hypercube', flush=True)
+            print('\n'+'-'*62+'\n', flush=True)
             s.create_lhc_data()
 
 
