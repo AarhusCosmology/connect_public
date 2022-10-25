@@ -1,0 +1,8 @@
+trained_models/*
+/data/lhc_samples/*.sample
+/data/*
+/resources/
+/input/*
+/jobscripts/*
+/*.out
+*__pycache__/
