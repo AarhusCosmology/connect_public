@@ -5,7 +5,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from source.lhc import LatinHypercubeSampler
 from source.join_output import CreateSingleDataFile
 from source.train_network import Training
-import source.misc_functions as misc
+import source.tools as tools
 from source.default_module import Parameters
 import fileinput
 import shutil
@@ -87,11 +87,11 @@ class Sampling():
                 print(f"Iteration {i} will be the last since convergence in data has been reached", flush=True)
             
             print(f'Calculating {N_accepted} CLASS models', flush=True)
-            misc.create_output_folders(self.param, iter_num=i, reset=False)
+            tools.create_output_folders(self.param, iter_num=i, reset=False)
             self.call_calc_models(sampling='iterative')
-            misc.join_data_files(self.param)
+            tools.join_data_files(self.param)
             if i > keep_idx + 1:
-                misc.combine_iterations_data(self.param, i)
+                tools.combine_iterations_data(self.param, i)
                 print(f"Copied data from data/{self.param.jobname}/number_{i-1} into data/{self.param.jobname}/number_{i}", flush=True)
             
             print("Training neural network", flush=True)
@@ -124,8 +124,7 @@ class Sampling():
     def call_calc_models(self, sampling='lhc'):
         os.environ["export OMP_NUM_THREADS"] = str({self.N_cpus_per_task})
         os.environ["PMIX_MCA_gds"] = "hash"
-        #--mca orte_base_help_aggregate 0
-        sp.Popen(f"mpirun --mca orte_base_help_aggregate 0 -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split()).wait()
+        sp.Popen(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split()).wait()
         os.environ["export OMP_NUM_THREADS"] = "1"
 
     def train_neural_network(self, sampling='lhc', output_file=None):
@@ -158,71 +157,3 @@ class Sampling():
                 if M-1 > 0:
                     model_name += f'_{M-1}'
         return model_name
-"""
-
-    def run_mcmc_sampling(self, model, iteration):
-        if self.param.mcmc_sampler == 'montepython':
-            self.run_montepython_iteration(model, iteration)
-        elif self.param.mcmc_sampler == 'cobaya':
-            self.run_cobaya_iteration(model, iteration)
-
-    def run_montepython_iteration(self, model, iteration):
-        if iteration == 1:
-            MP_param_file = misc.create_montepython_param(self.param,self.param.montepython_path)
-        else:
-            MP_param_file = f'input/connect/{self.param.jobname}.param'
-        with fileinput.input(self.param.montepython_path+'/'+MP_param_file, inplace=True) as file:
-            for line in file:
-                if "data.cosmo_arguments['connect_model']" in line:
-                    line = f"data.cosmo_arguments['connect_model'] = '{model}'\n"
-                print(line, end='')
-        
-        if self.mp_node != None:
-            sp.run(f'{self.CONNECT_PATH}/source/shell_scripts/run_montepython_iteration.sh {self.param.jobname} {MP_param_file} {self.CONNECT_PATH}/mp_plugin/connect.conf {self.param.mcmc_tol} {self.mp_node}', shell=True, cwd=self.param.montepython_path)
-        else:
-            sp.run(f'{self.CONNECT_PATH}/source/shell_scripts/run_montepython_iteration.sh {self.param.jobname} {MP_param_file} {self.CONNECT_PATH}/mp_plugin/connect.conf {self.param.mcmc_tol}', shell=True, cwd=self.param.montepython_path)
-        shutil.copytree(self.param.montepython_path + f'/chains/connect_{self.param.jobname}_data', f'{self.CONNECT_PATH}/data/{self.param.jobname}/number_{iteration}')
-
-    def run_cobaya_iteration(self, model, iteration):
-        os.environ["export OMP_NUM_THREADS"] = "1"
-        sp.Popen(f"mpirun -np 4 python {self.CONNECT_PATH}/source/run_cobaya_iteration.py {self.data_path}/log_connect.param".split()).wait()
-
-    def compare_iterations(self,i):
-        chain1=f"data/{self.param.jobname}/compare_iterations/chain__{i-1}.txt"
-        chain2=f"data/{self.param.jobname}/compare_iterations/chain__{i}.txt"
-        kill_iteration=misc.Gelman_Rubin_log(self.param,status=i,all_chains=[chain1,chain2])
-        return kill_iteration
-
-    def get_number_of_accepted_steps(self, iteration):
-        directory = os.path.join(self.CONNECT_PATH,f'data/{self.param.jobname}/number_{iteration}')
-        if self.param.mcmc_sampler == 'montepython':
-            txt_files = [f for f in os.listdir(directory) if f.endswith('.txt')]
-            N_acc = 0
-            for f in txt_files:
-                N_acc += sum(1 for line in open(os.path.join(directory,f)) 
-                             if line[0] != '#' and line.strip())
-
-        elif self.param.mcmc_sampler == 'cobaya':
-            with open(os.path.join(directory,'cobaya_all_chains.pkl'),'rb') as f:
-                all_chains = pkl.load(f)[1:]
-            N_acc = 0
-            for chain in all_chains:
-                N_acc += chain.shape[0]
-
-        return N_acc
-
-    def check_montepython_version(self):
-        with open(self.param.montepython_path + '/VERSION','r') as f:
-            version = list(f)[0].strip()
-        if int(version.split('.')[0]) < 3:
-            err_msg = f'Your version of MontePython is {version}, which is not compatible with python 3. Your MontePython version must be at least 3.0'
-            print(err_msg, flush=True)
-            raise NotImplementedError(err_msg)
-        else:
-            print(f'Your version of MontePython is {version}', flush=True)
-
-    def check_cobaya_version(self):
-        from cobaya import __version__ as version
-        print(f'Your version of Cobaya is {version}', flush=True)
-
-"""

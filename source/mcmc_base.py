@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import subprocess as sp
-import source.misc_functions as misc
+import source.tools as tools
 
 class MCMC_base_class():
     # A new mcmc sampler class that inherits from this class must contain the following methods:
@@ -23,7 +23,7 @@ class MCMC_base_class():
         slurm_bool = int(sp.run('if [ -z $SLURM_NPROCS ]; then echo 0; else echo 1; fi', shell=True, stdout=sp.PIPE).stdout.decode('utf-8'))
         self.mcmc_node = None
         if slurm_bool:
-            self.mcmc_node = misc.get_node_with_most_cpus()
+            self.mcmc_node = tools.get_node_with_most_cpus()
         os.environ["OMPI_MCA_rmaps_base_oversubscribe"] = "1"
 
 

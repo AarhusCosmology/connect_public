@@ -5,7 +5,7 @@ import pickle as pkl
 import sys
 import os
 from default_module import Parameters
-from misc_functions import get_computed_cls
+from tools import get_computed_cls
 from mpi4py import MPI
 import time
 import itertools

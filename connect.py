@@ -70,7 +70,7 @@ if keyword in ['create', 'train']:
 if keyword == 'create':
     os.system(f'rm -f {path}output.log')
 
-    from source.misc_functions import create_output_folders
+    from source.tools import create_output_folders
     create_output_folders(param) 
 
     from source.data_sampling import Sampling

@@ -76,8 +76,8 @@ class cobaya(MCMC_base_class):
         for name in param_names:
             if name == 'ln10^{10}A_s':
                 indices.append(sampled_names.index('logA'))
-            elif name+'_log_10_prior' in sampled_names:
-                indices.append(sampled_names.index(name+'_log_10_prior'))
+            elif name+'_log10_prior' in sampled_names:
+                indices.append(sampled_names.index(name+'_log10_prior'))
             else:
                 indices.append(sampled_names.index(name))
 
@@ -176,8 +176,8 @@ class cobaya(MCMC_base_class):
         for name in paramnames:
             if name == 'ln10^{10}A_s':
                 indices.append(sampled_names.index('logA'))
-            elif name+'_log_10_prior' in sampled_names and name in param.log_priors:
-                index = sampled_names.index(name+'_log_10_prior')
+            elif name+'_log10_prior' in sampled_names and name in self.param.log_priors:
+                index = sampled_names.index(name+'_log10_prior')
                 indices.append(index)
                 log_indices.append(index)
             else:
