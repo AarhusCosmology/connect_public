@@ -6,3 +6,5 @@ trained_models/*
 /jobscripts/*
 /*.out
 *__pycache__/
+!/input/example.param
+!/jobscripts/example.js
