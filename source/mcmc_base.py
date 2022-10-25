@@ -28,10 +28,10 @@ class MCMC_base_class():
 
 
 
-    def filter_steps(self, N_left, N_max_lines):
+    def filter_steps(self, N_left, N_max_points):
         N_to_use = [0]*len(N_left)
-        if np.sum(N_left) > N_max_lines:
-            N_per_chain = int(np.floor(N_max_lines/len(N_left)))
+        if np.sum(N_left) > N_max_points:
+            N_per_chain = int(np.floor(N_max_points/len(N_left)))
             if not N_per_chain == 0:
                 for i in range(len(N_left)):
                     if N_left[i] >= N_per_chain:
@@ -40,7 +40,7 @@ class MCMC_base_class():
                     else:
                         N_to_use[i] = N_left[i]
                         N_left[i] = 0
-            N_missing = N_max_lines - np.sum(N_to_use)
+            N_missing = N_max_points - np.sum(N_to_use)
             if N_missing > 0:
                 stop = False
             else:

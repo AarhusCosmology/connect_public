@@ -15,6 +15,6 @@ class LatinHypercubeSampler():
         sampler = qmc.LatinHypercube(d=self.d)
         sample = sampler.random(n=self.N)
 
-        with open(os.path.join(CONNECT_PATH, f'data/lhc_samples/sample_models_{self.jobname}_{self.N}.txt'),'wb') as f:
+        with open(os.path.join(CONNECT_PATH, f'data/lhc_samples/{self.d}_{self.N}.sample'),'wb') as f:
             pkl.dump(sample,f)
 

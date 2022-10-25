@@ -40,8 +40,7 @@ do
         line2=0
     fi
     
-    if [ $line2 -gt $line1 ] 
-#&& ! [[ $(sed -n "${line0},$$p" $output_file) == *"Removed everything: chain not converged"* ]]
+    if [ $line2 -gt $line1 ] && ! [[ $(sed -n "${line0},$$p" $output_file) == *"Removed everything: chain not converged"* ]]
     then
         kill_job=true
         for (( l=$line1; l<=$line2; l++ ))

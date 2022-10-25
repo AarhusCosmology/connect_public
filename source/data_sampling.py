@@ -22,20 +22,8 @@ class Sampling():
         elif self.param.sampling == 'iterative':
             self.data_path = f'data/{self.param.jobname}'
 
-        # The following three lines prevent an MPI warning (although harmless)
-        #tmp_dir = sp.run('echo "${HOME}/tmp"', shell=True, stdout=sp.PIPE).stdout.decode('utf-8')
-        #tmp_dir = os.path.join(self.CONNECT_PATH, 'tmp')
-        #os.system(f'mkdir -p {tmp_dir}')
-        #os.environ["TMPDIR"] = tmp_dir
-        #slurm_bool = int(sp.run('if [ -z $SLURM_NPROCS ]; then echo 0; else echo 1; fi', shell=True, stdout=sp.PIPE).stdout.decode('utf-8'))
-        #self.mp_node = None
-        #if slurm_bool:
-        #    self.mp_node = misc.get_node_with_most_cpus()
-        #os.environ["OMPI_MCA_rmaps_base_oversubscribe"] = "1"
-
     def create_lhc_data(self):
         self.latin_hypercube_sampling()
-        #misc.create_output_folders(self.param)
         self.copy_param_file()
         self.call_calc_models(sampling='lhc')
 
@@ -46,7 +34,6 @@ class Sampling():
         mcmc = _locals['mcmc']
 
         mcmc.check_version()
-        #misc.create_output_folders(self.param)
         if not os.path.isdir(f"data/{self.param.jobname}"):
             os.system(f"mkdir data/{self.param.jobname}")
         os.system(f"rm -rf data/{self.param.jobname}/compare_iterations")
@@ -83,7 +70,7 @@ class Sampling():
                 N_keep = 5000
                 keep_idx = 1
             else:
-                N_keep = self.param.N_max_lines
+                N_keep = self.param.N_max_points
             N_keep = mcmc.filter_chains(N_keep,i)
             print(f'Keeping only last {N_keep} of the accepted Markovian steps', flush=True)
             print('Comparing latest iterations...', flush=True)
@@ -130,22 +117,22 @@ class Sampling():
                 f.write(f"\njobname = '{self.param.jobname}'")
 
     def latin_hypercube_sampling(self):
-        if not os.path.isfile(self.CONNECT_PATH+f'/data/lhc_samples/sample_models_{self.param.jobname}_{self.param.N}.txt'):
+        if not os.path.isfile(self.CONNECT_PATH+f'/data/lhc_samples/{len(self.param.parameters.keys())}_{self.param.N}.sample'):
             lhc = LatinHypercubeSampler(self.param)
             lhc.run(self.CONNECT_PATH)
 
     def call_calc_models(self, sampling='lhc'):
         os.environ["export OMP_NUM_THREADS"] = str({self.N_cpus_per_task})
         os.environ["PMIX_MCA_gds"] = "hash"
-        #--mca shmem_mmap_enable_nfs_warning 0
-        sp.Popen(f"mpirun --mca orte_base_help_aggregate 0 -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH}".split()).wait()
+        #--mca orte_base_help_aggregate 0
+        sp.Popen(f"mpirun --mca orte_base_help_aggregate 0 -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split()).wait()
         os.environ["export OMP_NUM_THREADS"] = "1"
 
     def train_neural_network(self, sampling='lhc', output_file=None):
         if sampling == 'lhc':
             folder = ''
         elif sampling == 'iterative':
-            i = max([int(f.split('number_')[-1]) for f in os.listdir(self.CONNECT_PATH+'/'+self.data_path) if f.startswith('number')])
+            i = max([int(f.split('number_')[-1]) for f in os.listdir(os.path.join(self.CONNECT_PATH, self.data_path)) if f.startswith('number')])
             folder = f'number_{i}'
         if not os.path.isfile(os.path.join(self.CONNECT_PATH,
                                            self.data_path,
@@ -166,7 +153,7 @@ class Sampling():
         if not self.param.overwrite_model:
             M = 1
             if os.path.isdir(os.path.join('trained_models', model_name)):
-                while os.path.isdir(os.path.join('trained_models', model_name, f'_{M}')):
+                while os.path.isdir(os.path.join('trained_models', model_name+f'_{M}')):
                     M += 1
                 if M-1 > 0:
                     model_name += f'_{M-1}'

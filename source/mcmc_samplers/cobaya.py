@@ -27,7 +27,7 @@ class cobaya(MCMC_base_class):
         return N_acc
 
 
-    def filter_chains(self, N_max_lines, iteration):
+    def filter_chains(self, N_max_points, iteration):
 
         path = f'data/{self.param.jobname}/number_{iteration}'
         with open(path+'/cobaya_all_chains.pkl','rb') as f:
@@ -35,7 +35,7 @@ class cobaya(MCMC_base_class):
         N_left=[]
         for chain in all_chains['chains']:
             N_left.append(chain.shape[0])
-        N_to_use = self.filter_steps(N_left, N_max_lines)
+        N_to_use = self.filter_steps(N_left, N_max_points)
 
         filtered_chains = []
         filtered_and_combined_chain = np.zeros(shape=(0,all_chains['chains'][0].shape[1]))

@@ -9,23 +9,23 @@ from misc_functions import get_computed_cls
 from mpi4py import MPI
 import time
 import itertools
-import psutil
 
 param_file   = sys.argv[1]
 CONNECT_PATH = sys.argv[2]
+sampling     = sys.argv[3]
 param_file = os.path.join(CONNECT_PATH, param_file)
 
 param        = Parameters(param_file)
 param_names  = list(param.parameters.keys())
 
 path = os.path.join(CONNECT_PATH, f'data/{param.jobname}')
-if param.sampling == 'iterative':
+if sampling == 'iterative':
     try:
         iteration = max([int(f.split('number_')[-1]) for f in os.listdir(path) if f.startswith('number')])
         directory = os.path.join(path, f'number_{iteration}')
     except:
         directory = os.path.join(path, f'N-{param.N}')
-elif param.sampling == 'lhc':
+elif sampling == 'lhc':
     directory = os.path.join(path, f'N-{param.N}')
 
 comm = MPI.COMM_WORLD
@@ -38,7 +38,7 @@ get_slave = itertools.cycle(range(1,N_slaves+1))
 
 ## rank == 0 (master)
 if rank == 0:
-    if param.sampling == 'iterative':
+    if sampling == 'iterative':
         exec(f'from source.mcmc_samplers.{param.mcmc_sampler} import {param.mcmc_sampler}')
         _locals = {}
         exec(f'mcmc = {param.mcmc_sampler}(param, CONNECT_PATH)', locals(), _locals)
@@ -47,8 +47,8 @@ if rank == 0:
         data = mcmc.import_points_from_chains(iteration)
 
         
-    elif param.sampling == 'lhc':
-        with open(os.path.join(CONNECT_PATH, f'data/lhc_samples/sample_models_{param.jobname}_{param.N}.txt'),'rb') as f:
+    elif sampling == 'lhc':
+        with open(os.path.join(CONNECT_PATH, f'data/lhc_samples/{len(param.parameters.keys())}_{param.N}.sample'),'rb') as f:
             sample = pkl.load(f)
         data = sample.T
         for i, name in enumerate(param_names):

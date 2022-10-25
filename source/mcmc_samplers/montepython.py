@@ -43,7 +43,7 @@ class montepython(MCMC_base_class):
 
     def filter_chains(self, N, iteration):
         path = f'data/{self.param.jobname}/number_{iteration}'
-        N_max_lines = N
+        N_max_points = N
 
         list_of_files=[]
         for filename in [f for f in os.listdir(path) if f.endswith('.txt')]:
@@ -53,7 +53,7 @@ class montepython(MCMC_base_class):
             lines = self.useful_points_in_file(filename)
             lines_of_use_in_files[filename] = lines
         N_left = [lines_of_use_in_files[filename] for filename in list_of_files]
-        N_to_use = self.filter_steps(N_left, N_max_lines)
+        N_to_use = self.filter_steps(N_left, N_max_points)
 
         output_lines = {}
         for filename, N_lines in zip(list_of_files, N_to_use):
@@ -85,7 +85,7 @@ class montepython(MCMC_base_class):
 
     def create_montepython_param(self, iteration):
         path = os.path.join(self.CONNECT_PATH, 'data', self.param.jobname, 'montepython_input')
-        os.system(f"rm -rf {path}; mkdir {path}")
+        os.system(f"mkdir -p {path}")
         with open('mp_plugin/param_templates/connect_lite.param.template','r') as f:
             with open(os.path.join(path, f'number_{iteration}.param'),'w') as g:
                 for line in f:
@@ -169,7 +169,7 @@ class montepython(MCMC_base_class):
             try:
                 index = [idx for idx, s in enumerate(output) if '-> R-1 is' in s][0]
             except:
-                raise RuntimeError('chains are much too short for Monte Python to analyse. Increase N_max_lines in the parameter file')
+                raise RuntimeError('chains are much too short for Monte Python to analyse. Increase N_max_points in the parameter file')
             kill_iteration = True
             largest_Rm1 = 0
             for par in self.param.parameters:

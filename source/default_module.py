@@ -30,7 +30,7 @@ class Parameters():
         self.output_bg            = getattr(param, 'output_bg',            []                  )
         self.output_th            = getattr(param, 'output_th',            []                  )
         self.output_derived       = getattr(param, 'output_derived',       []                  )
-        self.N_max_lines          = getattr(param, 'N_max_lines',          10000               )
+        self.N_max_points         = getattr(param, 'N_max_points',         10000               )
         self.normalization_method = getattr(param, 'normalization_method', 'standardization'   )
         self.sampling             = getattr(param, 'sampling',             'lhc'               )
         self.mcmc_sampler         = getattr(param, 'mcmc_sampler',         'cobaya'            )

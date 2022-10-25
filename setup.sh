@@ -1,4 +1,13 @@
 #!/bin/bash
+"""
+This script installs all dependencies and sets up a conda environment.
+The user must have the loadable kernel modules 'intel' and 'mkl' installed
+
+Author: Andreas Nygaard (2022)
+
+"""
+
+
 
 NO='\033[0;31mno\033[0m'
 YES='\033[0;32myes\033[0m'
@@ -11,11 +20,38 @@ echo -e "Running setup script for connect\n"
 
 echo -e "The following things can be done (but can also be skipped):"
 echo -e "    - create conda environment with all dependencies"
-echo -e "    - setup path to Monte Python and add custom likelihoods"
-echo -e "    - install Cobaya, CLASS and CAMB (in environment)\n\n"
+echo -e "    - install and setup Monte Python or use previous installation"
+echo -e "    - install and setup CLASS or use previous installation"
+echo -e "    - install Cobaya and CAMB (in environment)\n\n"
 echo -e "--------------------------------------------------------------\n\n"
-echo "Creating conda environment. Proceed? [yes, skip]"
-read create_env
+
+module load intel 2> /dev/null || failed_intel="true"
+module load mkl 2> /dev/null || failed_mkl="true"
+if ! [ -z $failed_intel ] || ! [ -z $failed_mkl ]
+then
+    if ! [ -z $failed_intel ]
+    then
+	echo "Kernel module 'intel' was not found."
+    fi
+    if ! [ -z $failed_mkl ]
+    then
+	echo "Kernel module 'mkl' was not found."
+    fi
+    echo -e "\nMake sure that the kernel modules 'intel' and 'mkl' can be"
+    echo -e "loaded with 'module load <name>'. These are needed to compile"
+    echo -e "the clik code." 
+    exit 0
+else
+    module unload intel
+    module unload mkl
+fi
+
+while [ -z $create_env ]
+do
+    echo "Creating conda environment. Proceed? [yes, skip]"
+    read create_env
+done
+
 env_name="ConnectEnvironment"
 if ! [ $create_env == "yes" ]
 then
@@ -23,8 +59,13 @@ then
     echo "an environment:"
     read env_name
 fi
-echo "Do you want to use Monte Python with CONNECT? [yes, no]"
-read setup_mp
+
+while [ -z $setup_mp ]
+do
+    echo "Do you want to use Monte Python with CONNECT? [yes, no]"
+    read setup_mp
+done
+
 if [ $setup_mp == "yes" ]
 then
     echo "Enter absolute path to montepython_public, or leave blank to"
@@ -35,24 +76,37 @@ then
     read clik_path
 fi
 
-echo "Do you want to install Cobaya in the environment? [yes, no]"
-read cobaya
-if [ -z $clik_path ] && [ $cobaya == "yes" ] && [ $setup_mp != "yes" ]
-then
-    echo "Enter absolute path to clik data (../code/plc_3.0/plc-3.01/),"
-    echo "or leave blank to download and install it here:"
-    read clik_path
-fi
-echo "Do you want to install CLASS in the environment? [yes, no]"
-read class
+while [ -z $class ]
+do
+    echo "Do you want to install CLASS in the environment? [yes, no]"
+    read class
+done
+
 if [ $class == "yes" ]
 then
     echo "If you already have a CLASS installation, enter the absolute"
     echo "path. Otherwise, leave blank and CLASS repo will be cloned:"
     read class_path
 fi
-echo "Do you want to install CAMB in the environment? [yes, no]"
-read camb
+
+while [ -z $cobaya ]
+do
+    echo "Do you want to install Cobaya in the environment? [yes, no]"
+    read cobaya
+done
+
+if [ -z $clik_path ] && [ $cobaya == "yes" ] && [ $setup_mp != "yes" ]
+then
+    echo "Enter absolute path to clik data (../code/plc_3.0/plc-3.01/),"
+    echo "or leave blank to download and install it here:"
+    read clik_path
+fi
+
+while [ -z $camb ]
+do
+    echo "Do you want to install CAMB in the environment? [yes, no]"
+    read camb
+done
 
 echo -e "\n--------------------------------------------------------------\n"
 
@@ -69,7 +123,8 @@ then
     then
 	clik_mp="\n    Path to clik:\n    \033[0;34m${clik_path}\033[0m"
     else
-	clik_mp="\n    Downloading clik to this location"
+	clik_mp="\n    Downloading clik to \033[0;34mconnect/resources\\
+033[0m"
     fi
     if ! [ -z $montepython_path ]
     then
@@ -85,36 +140,36 @@ then
 	fi
 	path_mp="\n    Path to Monte Python:\n    \033[0;34m${montepython_path}\033[0m"
     else
-	path_mp="\n    Cloning Monte Python repo to this location"
+	path_mp="\n    Cloning Monte Python repo to \033[0;34mconnect/resources\033[0m"
     fi
 else
     Ans2=$NO
 fi
 
-if [ $cobaya == "yes" ]
+if [ $class == "yes" ]
 then
     Ans3=$YES
-    if ! [ $Ans2 == $YES ]
+    if ! [ -z $class_path ]
     then
-	if ! [ -z $clik_path ]
-	then
-	    clik_cobaya="\n    Path to clik:\n    \033[0;34m${clik_path}\033[0m"
-	else
-	    clik_cobaya="\n    Downloading clik to this location"
-	fi
+	path_class="\n    Path to CLASS:\n    \033[0;34m${class_path}\033[0m"
+    else
+	path_class="\n    Cloning CLASS repo to \033[0;34mconnect/resources\033[0m"
     fi
 else
     Ans3=$NO
 fi
 
-if [ $class == "yes" ]
+if [ $cobaya == "yes" ]
 then
     Ans4=$YES
-    if ! [ -z $class_path ]
+    if ! [ $Ans4 == $YES ]
     then
-	path_class="\n    Path to CLASS:\n    \033[0;34m${class_path}\033[0m"
-    else
-	path_class="\n    Cloning CLASS repo from GitHub"
+	if ! [ -z $clik_path ]
+	then
+	    clik_cobaya="\n    Path to clik:\n    \033[0;34m${clik_path}\033[0m"
+	else
+	    clik_cobaya="\n    Downloading clik to \033[0;34mconnect/resources\033[0m"
+	fi
     fi
 else
     Ans4=$NO
@@ -130,14 +185,18 @@ fi
 echo -e "You have selected the following:\n"
 echo -e "Create conda environment             :                   ${Ans1}"
 echo -e "Setup link to Monte Python           :                   ${Ans2}${path_mp}${clik_mp}"
-echo -e "Install Cobaya                       :                   ${Ans3}${clik_cobaya}"
-echo -e "Install CLASS                        :                   ${Ans4}${path_class}"
+echo -e "Install CLASS                        :                   ${Ans3}${path_class}"
+echo -e "Install Cobaya                       :                   ${Ans4}${clik_cobaya}"
 echo -e "Install CAMB                         :                   ${Ans5}"
 
 echo -e "\n--------------------------------------------------------------\n"
 
-echo -e "\nProceed? [yes, abort]"
-read proceed
+while [ -z $proceed ]
+do
+    echo -e "\nProceed? [yes, abort]"
+    read proceed
+done
+
 if [ $proceed == "abort" ]
 then
     echo -e "\nYou have aborted the setup. Please try again\n"
@@ -201,9 +260,8 @@ then
     conda env remove -y --name $env_name
     conda create -y --name $env_name
     source activate $env_name
-    conda install -y cython matplotlib scipy numpy mpi4py
-    conda install -c anaconda tensorflow-gpu
-    python -m pip install pyfits
+    conda install -y cython matplotlib scipy numpy astropy openmpi mpi4py
+    conda install -y -c anaconda tensorflow-gpu
     echo "--> ..done!"
 fi
 
@@ -235,6 +293,8 @@ then
     fi
     ./waf configure --lapack_mkl=$MKLROOT --cfitsio_prefix=$PWD/cfitsio-3.47
     ./waf install
+    module unload mkl
+    module unload intel
     cd $connect_path
     echo "-->...done!"
 
@@ -269,6 +329,8 @@ then
 	module load intel
 	./waf configure --lapack_mkl=$MKLROOT --cfitsio_prefix=$PWD/cfitsio-3.47
 	./waf install
+	module unload mkl
+	module unload intel
 	cd $connect_path
 	echo "-->...done!"
     fi
@@ -291,7 +353,6 @@ then
 	echo "--> Building classy wrapper..."
 	connect_path=$PWD
 	cd $class_path
-        module unload intel
 	make clean
 	make
 	echo "--> ...done!"
@@ -319,5 +380,7 @@ then
     python -m pip install camb --upgrade
     echo "--> ...done!"
 fi
+
+python -c "from source.animate import play; play()"
 
 echo -e "\nSetup is all done!\n"

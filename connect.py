@@ -56,11 +56,12 @@ config = vars(args)
 """
 
 keyword       = sys.argv[1]
-param_file    = sys.argv[2]
-param         = Parameters(param_file)
-parameters    = param.parameters
+if keyword in ['create', 'train']:
+    param_file    = sys.argv[2]
+    param         = Parameters(param_file)
+    parameters    = param.parameters
 
-path = CONNECT_PATH + f'/data/{param.jobname}/'
+    path = CONNECT_PATH + f'/data/{param.jobname}/'
 
 #####################################
 # ____________ create _____________ #
@@ -128,3 +129,12 @@ if keyword == 'train':
     tr.save_model()
     tr.save_history()
     tr.save_test_data()
+
+
+#####################################
+# ____________ animate ____________ #
+#####################################
+
+if keyword == 'animate':
+    from source.animate import play
+    play()
