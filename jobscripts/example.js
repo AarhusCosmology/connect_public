@@ -12,7 +12,7 @@ echo "========= Job started at `date` =========="
 source activate ConnectEnvironment
 
 # source planck data (load path from connect.conf)
-clik_line=$(grep -hr "clik" mp_plugin/connect.conf)
+clik_line=$(grep -hr "clik" mcmc_plugin/connect.conf)
 path_split=(${clik_line//= / })
 path="$(echo ${path_split[1]} | sed "s/'//g")bin/clik_profile.sh"
 source $path

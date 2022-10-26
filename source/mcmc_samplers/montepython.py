@@ -12,7 +12,7 @@ class montepython(MCMC_base_class):
     def __init__(self, param, CONNECT_PATH):
         super(montepython, self).__init__(param, CONNECT_PATH)
         path = {}
-        with open(os.path.join(CONNECT_PATH, 'mp_plugin/connect.conf'), 'r') as f:
+        with open(os.path.join(CONNECT_PATH, 'mcmc_plugin/connect.conf'), 'r') as f:
             for line in f:
                 exec(line)
         self.montepython_path = path['montepython']
@@ -28,7 +28,7 @@ class montepython(MCMC_base_class):
 
         output_dir = f'{self.CONNECT_PATH}/data/{self.param.jobname}/number_{iteration}'
 
-        sp.run(f"{self.CONNECT_PATH}/source/mcmc_samplers/run_scripts/run_montepython_iteration.sh {output_dir} {MP_param_file} {os.path.join(self.CONNECT_PATH,'mp_plugin/connect.conf')} {self.param.mcmc_tol} {self.mcmc_node}", shell=True, cwd=self.montepython_path)
+        sp.run(f"{self.CONNECT_PATH}/source/mcmc_samplers/run_scripts/run_montepython_iteration.sh {output_dir} {MP_param_file} {os.path.join(self.CONNECT_PATH,'mcmc_plugin/connect.conf')} {self.param.mcmc_tol} {self.mcmc_node}", shell=True, cwd=self.montepython_path)
 
     
     def get_number_of_accepted_steps(self, iteration):
@@ -86,7 +86,7 @@ class montepython(MCMC_base_class):
     def create_montepython_param(self, iteration):
         path = os.path.join(self.CONNECT_PATH, 'data', self.param.jobname, 'montepython_input')
         os.system(f"mkdir -p {path}")
-        with open('mp_plugin/param_templates/connect_lite.param.template','r') as f:
+        with open('mcmc_plugin/mp_param_templates/connect_lite.param.template','r') as f:
             with open(os.path.join(path, f'number_{iteration}.param'),'w') as g:
                 for line in f:
                     g.write(line)

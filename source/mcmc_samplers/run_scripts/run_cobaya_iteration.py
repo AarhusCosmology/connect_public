@@ -15,7 +15,7 @@ param_file = sys.argv[3]
 param = Parameters(param_file)
 
 path = {}
-with open('mp_plugin/connect.conf','r') as f:
+with open('mcmc_plugin/connect.conf','r') as f:
     for line in f:
         exec(line)
 
@@ -27,7 +27,7 @@ directory = os.path.join(CONNECT_PATH, f'data/{param.jobname}/number_{iteration}
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
-sys.stdout = open(directory + 'cobaya.log','w')
+sys.stdout = open(directory + 'cobaya.log','a+')
 sys.stderr = sys.stdout
 
 
@@ -48,13 +48,13 @@ info = {'likelihood': {},
         'params': {},
         'sampler': {'mcmc': {'Rminus1_cl_stop':  0.2,
                              'Rminus1_stop':     param.mcmc_tol,
-                             'max_tries':        100,
+                             'max_tries':        1e+5,
                              'covmat':          'auto',
                              'oversample_power': 0,
                              'proposal_scale':   2.1}},
         'theory': {'CosmoConnect': {'ignore_obsolete': True,
-                                    'path':            os.path.join(CONNECT_PATH, 'mp_plugin/cobaya'),
-                                    'python_path':     os.path.join(CONNECT_PATH, 'mp_plugin/cobaya'),
+                                    'path':            os.path.join(CONNECT_PATH, 'mcmc_plugin/cobaya'),
+                                    'python_path':     os.path.join(CONNECT_PATH, 'mcmc_plugin/cobaya'),
                                     'extra_args':      {'connect_model': model}
                                 }}}
 

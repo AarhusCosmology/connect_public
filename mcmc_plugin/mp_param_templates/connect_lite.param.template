@@ -1,0 +1,21 @@
+#------Experiments to test (separated with commas)-----
+
+#------ Settings for the over-sampling.
+data.over_sampling=[1,1]
+
+#------ Parameter list -------
+# Cosmological parameters list
+
+# Nuisance parameter list, same call, except the name does not have to be a class name
+
+data.parameters['A_planck']          = [ 1.00061,   0.9,   1.1,     0.0025,     1, 'nuisance']
+
+# Derived parameter list
+
+# Connect model name used by plugin
+data.cosmo_arguments['connect_model'] = 'model_name'
+
+#------ Mcmc parameters ----
+
+data.N=10
+data.write_step=5

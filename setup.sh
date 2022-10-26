@@ -299,11 +299,11 @@ then
     echo "-->...done!"
 
     echo "--> Linking Monte Python..."
-    echo "path['cosmo'] = '${PWD}/mp_plugin'" > mp_plugin/connect.conf
-    echo "path['clik'] = '${clik_path}'" >> mp_plugin/connect.conf
-    echo "path['montepython'] = '${montepython_path}'" >> mp_plugin/connect.conf
+    echo "path['cosmo'] = '${PWD}/mp_plugin'" > mcmc_plugin/connect.conf
+    echo "path['clik'] = '${clik_path}'" >> mcmc_plugin/connect.conf
+    echo "path['montepython'] = '${montepython_path}'" >> mcmc_plugin/connect.conf
     
-    cp -r mp_plugin/mp_likelihoods/Planck_lowl_EE_connect $montepython_path/montepython/likelihoods/
+    cp -r mcmc_plugin/mp_likelihoods/Planck_lowl_EE_connect $montepython_path/montepython/likelihoods/
     echo "--> ...done!"
 fi
 
@@ -334,12 +334,12 @@ then
 	cd $connect_path
 	echo "-->...done!"
     fi
-    line1="path['cosmo'] = '${PWD}/mp_plugin'"
+    line1="path['cosmo'] = '${PWD}/mcmc_plugin'"
     line2="path['clik'] = '${clik_path}'"
-    line3=$(grep -hr "montepython" mp_plugin/connect.conf)
-    echo $line1 > mp_plugin/connect.conf
-    echo $line2 >> mp_plugin/connect.conf
-    echo $line3 >> mp_plugin/connect.conf
+    line3=$(grep -hr "montepython" mcmc_plugin/connect.conf)
+    echo $line1 > mcmc_plugin/connect.conf
+    echo $line2 >> mcmc_plugin/connect.conf
+    echo $line3 >> mcmc_plugin/connect.conf
 fi
 
 if [ $Ans4 == $YES ]

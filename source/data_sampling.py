@@ -34,30 +34,41 @@ class Sampling():
         mcmc = _locals['mcmc']
 
         mcmc.check_version()
-        if not os.path.isdir(f"data/{self.param.jobname}"):
-            os.system(f"mkdir data/{self.param.jobname}")
-        os.system(f"rm -rf data/{self.param.jobname}/compare_iterations")
-        os.system(f"mkdir data/{self.param.jobname}/compare_iterations")
-        self.copy_param_file()
-        if not self.param.resume_iterations:
-            os.system(f"rm -rf {self.CONNECT_PATH}/data/{self.param.jobname}/number_*")
-        mcmc.Gelman_Rubin_log_ini()
-        if self.param.initial_model == None:
-            print('No initial model given', flush=True)
-            print(f'Calculating {self.param.N} initial CLASS models', flush=True)
-            self.latin_hypercube_sampling()
-            self.call_calc_models(sampling='lhc')
-            print('Training neural network', flush=True)
-            model = self.train_neural_network(sampling='lhc',
+        if self.param.resume_iterations:
+            i = max([int(f.split('number_')[-1]) for f in os.listdir(self.data_path) if f.startswith('number')])
+            print('i =',i)
+            os.system(f"rm -rf {self.data_path}/number_{i}")
+            print('Resuming iterative sampling', flush=True)
+            print(f'Retraining neural network from iteration {i-1}', flush=True)
+            model = self.train_neural_network(sampling='iterative',
+                                              output_file=os.path.join(self.data_path,
+                                                                       f'number_{i-1}/training.log'))
+            if not os.path.isdir(os.path.join(self.data_path, 'compare_iterations')):
+                os.system(f"mkdir {self.data_path}/compare_iterations")
+                mcmc.Gelman_Rubin_log_ini()
+        else:
+            self.copy_param_file()
+            if not os.path.isdir(self.data_path):
+                os.system(f"mkdir {self.data_path}")
+            os.system(f"rm -rf {self.data_path}/compare_iterations")
+            os.system(f"mkdir {self.data_path}/compare_iterations")
+            i = 1
+            if self.param.initial_model == None:
+                os.system(f"rm -rf {self.CONNECT_PATH}/{self.data_path}/number_*")
+                mcmc.Gelman_Rubin_log_ini()
+                print('No initial model given', flush=True)
+                print(f'Calculating {self.param.N} initial CLASS models', flush=True)
+                self.latin_hypercube_sampling()
+                self.call_calc_models(sampling='lhc')
+                print('Training neural network', flush=True)
+                model = self.train_neural_network(sampling='lhc',
                                               output_file=os.path.join(self.data_path, 
                                                                        f'N-{self.param.N}/training.log'))
-        else:
-            model = self.param.initial_model
-        keep_idx = 0
-        kill_iteration = False
-        print(f'Initial model is {model}', flush=True)
+            else:
+                model = self.param.initial_model
+            print(f'Initial model is {model}', flush=True)
 
-        i = 1
+        kill_iteration = False
         while True:
             print(f'\n\nBeginning iteration no. {i}', flush=True)
             print(f'Running MCMC sampling no. {i}...', flush=True)
@@ -68,7 +79,6 @@ class Sampling():
             print(f'Number of accepted steps: {N_acc}', flush=True)
             if i == 1 and not self.param.keep_first_iteration:
                 N_keep = 5000
-                keep_idx = 1
             else:
                 N_keep = self.param.N_max_points
             N_keep = mcmc.filter_chains(N_keep,i)
@@ -76,7 +86,7 @@ class Sampling():
             print('Comparing latest iterations...', flush=True)
             if i > 1:
                 kill_iteration = mcmc.compare_iterations(i)
-            if i > keep_idx + 1:
+            if i > int(not self.param.keep_first_iteration) + 1:
                 model_params=f"data/{self.param.jobname}/number_{i-1}/model_params.txt"
                 N_accepted=mcmc.discard_oversampled_points(model_params,i)
                 print(f"Accepted {N_accepted} points out of {N_keep}", flush=True)
@@ -90,20 +100,20 @@ class Sampling():
             tools.create_output_folders(self.param, iter_num=i, reset=False)
             self.call_calc_models(sampling='iterative')
             tools.join_data_files(self.param)
-            if i > keep_idx + 1:
+            if i > int(not self.param.keep_first_iteration) + 1:
                 tools.combine_iterations_data(self.param, i)
                 print(f"Copied data from data/{self.param.jobname}/number_{i-1} into data/{self.param.jobname}/number_{i}", flush=True)
             
             print("Training neural network", flush=True)
-            model_name = self.train_neural_network(sampling='iterative',
-                                                   output_file=os.path.join(self.data_path,
-                                                                            f'number_{i}/training.log'))
+            model = self.train_neural_network(sampling='iterative',
+                                              output_file=os.path.join(self.data_path,
+                                                                       f'number_{i}/training.log'))
             
             if kill_iteration and N_accepted < 0.1*N_keep:
-                print(f"Final model is {model_name}", flush=True)
+                print(f"Final model is {model}", flush=True)
                 break
             else:
-                print(f"New model is {model_name}", flush=True)
+                print(f"New model is {model}", flush=True)
                 i += 1
 
     def copy_param_file(self):

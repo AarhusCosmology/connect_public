@@ -41,54 +41,56 @@ def get_computed_cls(cosmo       # A computed CLASS model
 
 def create_output_folders(param,            # Parameter object
                           iter_num=None,    # Current iteration number
-                          reset=True       # Resets output folders
+                          reset=True,       # Resets output folders
+                          resume=False      # Resume from iteration
                       ):
-    path = os.path.join(CONNECT_PATH, f'data/{param.jobname}')
-    if not os.path.isdir(path):
-        os.mkdir(path)
-    if iter_num == None:
-        if (reset and param.initial_model == None) or param.sampling == 'lhc':
-            for name in os.listdir(path):
-                if not name.startswith('N-') or name == f'N-{param.N}':
-                    os.system(f"rm -rf {os.path.join(path, name)}")
-            os.mkdir(os.path.join(path,f'N-{param.N}'))
-            os.mkdir(os.path.join(path, f'N-{param.N}/model_params_data'))
+    if not resume:
+        path = os.path.join(CONNECT_PATH, f'data/{param.jobname}')
+        if not os.path.isdir(path):
+            os.mkdir(path)
+        if iter_num == None:
+            if (reset and param.initial_model == None) or param.sampling == 'lhc':
+                for name in os.listdir(path):
+                    if not name.startswith('N-') or name == f'N-{param.N}':
+                        os.system(f"rm -rf {os.path.join(path, name)}")
+                os.mkdir(os.path.join(path,f'N-{param.N}'))
+                os.mkdir(os.path.join(path, f'N-{param.N}/model_params_data'))
+                for output in param.output_Cl:
+                    os.mkdir(os.path.join(path, f'N-{param.N}/Cl_{output}_data'))
+                for output in param.output_Pk:
+                    os.mkdir(os.path.join(path, f'N-{param.N}/Pk_{output}_data'))
+                for output in param.output_bg:
+                    os.mkdir(os.path.join(path, f'N-{param.N}/{output}_data'))
+                for output in param.output_th:
+                    os.mkdir(os.path.join(path, f'N-{param.N}/{output}_data'))
+                if len(param.output_derived) > 0:
+                    os.mkdir(os.path.join(path, f'N-{param.N}/derived_data'))
+
+            elif reset:
+                for name in os.listdir(path):
+                    if not name.startswith('N-'):
+                        os.system(f"rm -rf {os.path.join(path, name)}")
+
+        else:
+            if reset:
+                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}')}")
+                os.mkdir(os.path.join(path, f'number_{iter_num}'))
+            os.mkdir(os.path.join(path, f'number_{iter_num}/model_params_data'))
             for output in param.output_Cl:
-                os.mkdir(os.path.join(path, f'N-{param.N}/Cl_{output}_data'))
+                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/Cl_{output}_data')}")
+                os.mkdir(os.path.join(path, f'number_{iter_num}/Cl_{output}_data'))
             for output in param.output_Pk:
-                os.mkdir(os.path.join(path, f'N-{param.N}/Pk_{output}_data'))
+                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/Pk_{output}_data')}")
+                os.mkdir(os.path.join(path, f'number_{iter_num}/Pk_{output}_data'))
             for output in param.output_bg:
-                os.mkdir(os.path.join(path, f'N-{param.N}/{output}_data'))
+                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/{output}_data')}")
+                os.mkdir(os.path.join(path, f'number_{iter_num}/{output}_data'))
             for output in param.output_th:
-                os.mkdir(os.path.join(path, f'N-{param.N}/{output}_data'))
+                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/{output}_data')}")
+                os.mkdir(os.path.join(path, f'number_{iter_num}/{output}_data'))
             if len(param.output_derived) > 0:
-                os.mkdir(os.path.join(path, f'N-{param.N}/derived_data'))
-
-        elif reset:
-            for name in os.listdir(path):
-                if not name.startswith('N-'):
-                    os.system(f"rm -rf {os.path.join(path, name)}")
-
-    else:
-        if reset:
-            os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}')}")
-            os.mkdir(os.path.join(path, f'number_{iter_num}'))
-        os.mkdir(os.path.join(path, f'number_{iter_num}/model_params_data'))
-        for output in param.output_Cl:
-            os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/Cl_{output}_data')}")
-            os.mkdir(os.path.join(path, f'number_{iter_num}/Cl_{output}_data'))
-        for output in param.output_Pk:
-            os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/Pk_{output}_data')}")
-            os.mkdir(os.path.join(path, f'number_{iter_num}/Pk_{output}_data'))
-        for output in param.output_bg:
-            os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/{output}_data')}")
-            os.mkdir(os.path.join(path, f'number_{iter_num}/{output}_data'))
-        for output in param.output_th:
-            os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/{output}_data')}")
-            os.mkdir(os.path.join(path, f'number_{iter_num}/{output}_data'))
-        if len(param.output_derived) > 0:
-            os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/derived_data')}")
-            os.mkdir(os.path.join(path, f'number_{iter_num}/derived_data'))
+                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/derived_data')}")
+                os.mkdir(os.path.join(path, f'number_{iter_num}/derived_data'))
 
 
 def join_data_files(param     # Parameter object

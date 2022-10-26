@@ -71,7 +71,7 @@ if keyword == 'create':
     os.system(f'rm -f {path}output.log')
 
     from source.tools import create_output_folders
-    create_output_folders(param) 
+    create_output_folders(param, resume=param.resume_iterations) 
 
     from source.data_sampling import Sampling
     s = Sampling(param_file, CONNECT_PATH)
