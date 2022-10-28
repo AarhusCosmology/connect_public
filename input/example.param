@@ -53,19 +53,19 @@ N = 1e+4       # Amount of points in lhc. When using the iterative
 output_Cl      = ['tt', 'te', 'ee']         # Cl spectra in output
 
 output_derived = ['z_reio',                 # Derived parameters in output
-		       'Omega_Lambda', 
-		       'YHe', 
-		       'A_s', 
-		       'sigma8', 
-		       '100*theta_s'
-		       ]
+		  'Omega_Lambda', 
+		  'YHe', 
+		  'A_s', 
+		  'sigma8', 
+		  '100*theta_s'
+		  ]
 
 extra_input    = {'k_pivot': 0.05,	    # Extra input to CLASS
-		       'N_ur':    2.0328,
-		       'N_ncdm':  1,
-		       'm_ncdm':  0.06,
-		       'T_ncdm':  0.71611,
-		       }
+		  'N_ur':    2.0328,
+		  'N_ncdm':  1,
+		  'm_ncdm':  0.06,
+		  'T_ncdm':  0.71611,
+		  }
 
 #bestfit_guesses = {'parameter': value}  # Guesses for bestfit for parameters
 

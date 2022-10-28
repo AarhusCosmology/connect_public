@@ -89,12 +89,15 @@ class Sampling():
             if i > int(not self.param.keep_first_iteration) + 1:
                 model_params=f"data/{self.param.jobname}/number_{i-1}/model_params.txt"
                 N_accepted=mcmc.discard_oversampled_points(model_params,i)
+                N_in_data_set = mcmc.get_number_of_data_points(i-1)+ N_accepted
                 print(f"Accepted {N_accepted} points out of {N_keep}", flush=True)
             else:
                 N_accepted=N_keep
+                N_in_data_set = 0
 
-            if kill_iteration and N_accepted < 0.1*N_keep:
+            if kill_iteration and N_accepted < 0.1*N_in_data_set:
                 print(f"Iteration {i} will be the last since convergence in data has been reached", flush=True)
+                print(f"and less than 10% of the data was added in this iteration")
             
             print(f'Calculating {N_accepted} CLASS models', flush=True)
             tools.create_output_folders(self.param, iter_num=i, reset=False)
@@ -103,13 +106,13 @@ class Sampling():
             if i > int(not self.param.keep_first_iteration) + 1:
                 tools.combine_iterations_data(self.param, i)
                 print(f"Copied data from data/{self.param.jobname}/number_{i-1} into data/{self.param.jobname}/number_{i}", flush=True)
-            
+
             print("Training neural network", flush=True)
             model = self.train_neural_network(sampling='iterative',
                                               output_file=os.path.join(self.data_path,
                                                                        f'number_{i}/training.log'))
             
-            if kill_iteration and N_accepted < 0.1*N_keep:
+            if kill_iteration and N_accepted < 0.1*N_in_data_set:
                 print(f"Final model is {model}", flush=True)
                 break
             else:

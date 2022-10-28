@@ -162,6 +162,7 @@ class MCMC_base_class():
 
         return points1, points2
 
+
     def Gelman_Rubin_log_ini(self):
 
         with open(f'data/{self.param.jobname}/Gelman-Rubin.txt', 'w') as f:
@@ -171,6 +172,7 @@ class MCMC_base_class():
                 header += '\t'+par
             header += '\tCombined\n'
             f.write(header)
+
 
     def Gelman_Rubin_log(self,
                          iteration,       # Iteration number                     
@@ -185,3 +187,11 @@ class MCMC_base_class():
             f.write(Rm1_line)
 
         return kill_iteration
+
+
+    def get_number_of_data_points(self,
+                                  iteration   # Iteration number
+                              ):
+
+        with open(os.path.join(self.CONNECT_PATH, f'data/{self.param.jobname}/number_{iteration}/model_params.txt'), 'r') as f:
+            return len(list(f)) - 1

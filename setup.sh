@@ -299,6 +299,7 @@ then
     echo "-->...done!"
 
     echo "--> Linking Monte Python..."
+    cp mcmc_plugin/connect.conf.template mcmc_plugin/connect.conf
     echo "path['cosmo'] = '${PWD}/mp_plugin'" > mcmc_plugin/connect.conf
     echo "path['clik'] = '${clik_path}'" >> mcmc_plugin/connect.conf
     echo "path['montepython'] = '${montepython_path}'" >> mcmc_plugin/connect.conf
@@ -333,6 +334,10 @@ then
 	module unload intel
 	cd $connect_path
 	echo "-->...done!"
+    fi
+    if ! [ -f "mcmc_plugin/connect.conf" ]
+    then
+	cp mcmc_plugin/connect.conf.template mcmc_plugin/connect.conf
     fi
     line1="path['cosmo'] = '${PWD}/mcmc_plugin'"
     line2="path['clik'] = '${clik_path}'"

@@ -47,7 +47,12 @@ do
         do
             GR=$(sed -n ${l}p $output_file | tr "\t" "\n" | head -n 1)
             GR=${GR/ -> R-1 is /}
-            if (( $(echo "$GR > $mcmc_tol" | bc -l) ))
+	    bool=$(echo "$GR > $mcmc_tol" | bc -l 2> /dev/null)
+	    if [ -z $bool ]
+	    then
+		bool="0"
+	    fi
+            if (( $bool ))
             then
                 kill_job=false
             fi

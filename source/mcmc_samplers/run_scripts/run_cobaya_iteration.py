@@ -46,7 +46,7 @@ lkls = {'Planck_highl_TTTEEE_lite': {'name': 'planck_2018_highl_plik.TTTEEE_lite
 
 info = {'likelihood': {},
         'params': {},
-        'sampler': {'mcmc': {'Rminus1_cl_stop':  0.2,
+        'sampler': {'mcmc': {'Rminus1_cl_stop':  0.1,
                              'Rminus1_stop':     param.mcmc_tol,
                              'max_tries':        1e+5,
                              'covmat':          'auto',
