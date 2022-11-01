@@ -6,6 +6,7 @@ import tensorflow as tf
 import numpy as np
 import pickle
 import os
+import sys
 
 class Training():
 
@@ -13,18 +14,18 @@ class Training():
         self.param = param
         self.CONNECT_PATH = CONNECT_PATH
         
-        path = CONNECT_PATH + f'/data/{param.jobname}/'
+        path = os.path.join(CONNECT_PATH, f'data/{param.jobname}')
         if param.sampling == 'iterative':
             try:
                 i = max([int(f.split('number_')[-1]) for f in os.listdir(path) if f.startswith('number')])
-                self.load_path = path + f'number_{i}/'
-                self.param.N = sum(1 for line in open(self.load_path + 'model_params.txt')) - 1
+                self.load_path = os.path.join(path, f'number_{i}')
+                self.param.N = sum(1 for line in open(os.path.join(self.load_path, 'model_params.txt'))) - 1
             except:
-                self.load_path = path + f'N-{self.param.N}/'
-                self.param.N = sum(1 for line in open(self.load_path + 'model_params.txt')) - 1
+                self.load_path = os.path.join(path, f'N-{self.param.N}')
+                self.param.N = sum(1 for line in open(os.path.join(self.load_path, 'model_params.txt'))) - 1
         else:
-            self.load_path = path + f'N-{self.param.N}/'
-            self.param.N = sum(1 for line in open(self.load_path + 'model_params.txt')) - 1
+            self.load_path = os.path.join(path, f'N-{self.param.N}')
+            self.param.N = sum(1 for line in open(os.path.join(self.load_path, 'model_params.txt'))) - 1
 
         self.N_train = int(np.floor(self.param.N*self.param.train_ratio))
         input_dim = len(self.param.parameters.keys())
@@ -39,7 +40,7 @@ class Training():
         self.output_normalize['method'] = self.param.normalization_method
 
         ### Load input ###
-        with open(self.load_path + 'model_params.txt', 'r') as f:
+        with open(os.path.join(self.load_path, 'model_params.txt'), 'r') as f:
             for line in f:
                 if line[0] == '#':
                     paramnames = line[2:].replace('\n','').split('\t')
@@ -59,7 +60,7 @@ class Training():
             self.output_interval['Cl']  = {}
         for output in self.param.output_Cl:
             out = []
-            with open(self.load_path + f'Cl_{output}.txt', 'r') as f:
+            with open(os.path.join(self.load_path, f'Cl_{output}.txt'), 'r') as f:
                 for i, line in enumerate(f):
                     if i == 0:
                         ell = np.int32(line.replace('\n','').split('\t'))
@@ -103,7 +104,7 @@ class Training():
             self.output_interval['bg']  = {}
         for output in self.param.output_bg:
             out = []
-            with open(self.load_path + f'bg_{output}.txt', 'r') as f:
+            with open(os.path.join(self.load_path, f'bg_{output}.txt'), 'r') as f:
                 for i, line in enumerate(f):
                     if i == 0:
                         if self.output_normalize['method'] == 'factor':
@@ -142,7 +143,7 @@ class Training():
             self.output_interval['th']  = {}
         for output in self.param.output_th:
             out = []
-            with open(self.load_path + f'th_{output}.txt', 'r') as f:
+            with open(os.path.join(self.load_path, f'th_{output}.txt'), 'r') as f:
                 for i, line in enumerate(f):
                     if i == 0:
                         if self.output_normalize['method'] == 'factor':
@@ -180,7 +181,7 @@ class Training():
             if self.output_normalize['method'] == 'log':
                 self.output_normalize['derived'] = {}
             output_derived = []
-            with open(self.load_path + 'derived.txt', 'r') as f:
+            with open(os.path.join(self.load_path, 'derived.txt'), 'r') as f:
                 lines = list(f)
                 derived_names = lines[0].replace('# ','').replace('\n','').split('\t')
                 for i, line in enumerate(lines[1:]):
@@ -374,7 +375,7 @@ class Training():
         self.normalizer.adapt(np.concatenate([x for x, y in self.train_dataset], axis=0))
 
 
-    def train_model(self, epochs=None):
+    def train_model(self, epochs=None, output_file=None):
         if self.param.output_activation:
             out_act = self.output_info
         else:
@@ -392,6 +393,11 @@ class Training():
 
         self.training_success = False
         training_try_number = 0
+
+        if output_file != None:
+            stdout_backup = sys.stdout
+            sys.stdout = open(output_file, 'w')
+
         while not self.training_success:
             # beginning of while loop
             training_try_number += 1
@@ -417,6 +423,10 @@ class Training():
             if training_try_number == 3:
                 raise RuntimeError('Training failed 3 times due to NaN loss. Try adjusting the hyperparameters of the optimizer')
             # end of while loop
+
+        if output_file != None:
+            sys.stdout.close()
+            sys.stdout = stdout_backup
             
         
         test_loss, test_acc = self.model.evaluate(self.test_dataset, verbose=2)
@@ -426,14 +436,18 @@ class Training():
         if not getattr(self, 'model', None):
             errmsg = "the class has no attribute 'model'. You should run the 'train_model' method before using the 'save_model' method"
             raise AttributeError(errmsg)
-        self.save_path = self.CONNECT_PATH
         if self.param.save_name:
-            self.save_path += '/trained_models/' + self.param.save_name
+            self.save_path = os.path.join(self.CONNECT_PATH,
+                                          'trained_models',
+                                          self.param.save_name)
         else:
-            self.save_path += f'/trained_models/{self.param.jobname}'
-            self.save_path += f'_N{self.param.N}'
-            self.save_path += f'_bs{self.param.batchsize}'
-            self.save_path += f'_e{self.param.epochs}'
+            save_name  = f'{self.param.jobname}'
+            save_name += f'_N{self.param.N}'
+            save_name += f'_bs{self.param.batchsize}'
+            save_name += f'_e{self.param.epochs}'
+            self.save_path = os.path.join(self.CONNECT_PATH,
+                                          f'trained_models',
+                                          save_name)
 
         if not self.param.overwrite_model:
             M = 1
@@ -443,11 +457,11 @@ class Training():
                 self.save_path += f'_{M}'
         self.model.save(self.save_path)
 
-        with open(self.save_path + '/output_info.pkl','wb') as f:
+        with open(os.path.join(self.save_path, 'output_info.pkl'),'wb') as f:
             pickle.dump(self.output_info, f)
 
-        os.system(f'cp {self.param.param_file} {self.save_path}/log.param')
-        with open(f'{self.save_path}/log.param', 'a+') as f:
+        os.system(f"cp {self.param.param_file} {os.path.join(self.save_path, 'log.param')}")
+        with open(os.path.join(self.save_path, 'log.param'), 'a+') as f:
             jobname_specified = False
             for line in f:
                 if line.startswith('jobname'):
@@ -462,10 +476,10 @@ class Training():
         acc  = self.history.history['val_accuracy']
         loss = self.history.history['val_loss']
 
-        with open(self.save_path + '/val_accuracy.pkl','wb') as f:
+        with open(os.path.join(self.save_path, 'val_accuracy.pkl'),'wb') as f:
             pickle.dump(acc, f)
 
-        with open(self.save_path + '/val_loss.pkl','wb') as f:
+        with open(os.path.join(self.save_path, 'val_loss.pkl'),'wb') as f:
             pickle.dump(loss, f)
 
     def save_test_data(self):
@@ -493,5 +507,5 @@ class Training():
 
         test_data = [test_model_params, test_output]
         
-        with open(self.save_path + '/test_data.pkl','wb') as f:
+        with open(os.path.join(self.save_path, 'test_data.pkl'),'wb') as f:
             pickle.dump(test_data, f)

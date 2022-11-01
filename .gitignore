@@ -1,0 +1,11 @@
+trained_models/*
+/data/lhc_samples/*.sample
+/data/*
+/resources/
+/input/*
+/jobscripts/*
+/*.out
+*__pycache__/
+mcmc_plugin/connect.conf
+!/input/example.param
+!/jobscripts/example.js

@@ -1,6 +1,6 @@
 #!/bin/bash 
-output_dir="chains/connect_${1}_data"
-output_file="chains/connect_out/${1}.out"
+output_dir=$1
+output_file="${1}/montepython.log"
 MPARGS=" -p ${2}"
 MPARGS+=" -o $output_dir"
 MPARGS+=" -c covmat/base2018TTTEEE_lite.covmat"
@@ -9,19 +9,17 @@ MPARGS+=" --conf ${3}"
 MPARGS+=" -j fast -f 2.1 --silent"
 MPARGS+=" --update 1000"
 MPARGS+=" -T 5.0"
-rm -rf $output_dir
+mkdir -p $output_dir
 
-mp_tol=$4
+mcmc_tol=$4
 node=$5
 
-if ! [ -z $node ]
+if ! [ $node == "None" ]
 then
     MPI_ARGS=" -np 4 --host $node"
 else
     MPI_ARGS=" -np 4"
 fi
-
-mkdir -p chains/connect_out
 
 mpirun $MPI_ARGS python montepython/MontePython.py run $MPARGS &> $output_file & pid=$!
 
@@ -49,7 +47,12 @@ do
         do
             GR=$(sed -n ${l}p $output_file | tr "\t" "\n" | head -n 1)
             GR=${GR/ -> R-1 is /}
-            if (( $(echo "$GR > $mp_tol" | bc -l) ))
+	    bool=$(echo "$GR > $mcmc_tol" | bc -l 2> /dev/null)
+	    if [ -z $bool ]
+	    then
+		bool="0"
+	    fi
+            if (( $bool ))
             then
                 kill_job=false
             fi
@@ -62,3 +65,4 @@ do
     fi
 done
 
+sleep 1s # Ensures that buffer has time to be emptied upon termination of Monte Python

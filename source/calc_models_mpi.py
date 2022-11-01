@@ -5,7 +5,7 @@ import pickle as pkl
 import sys
 import os
 from default_module import Parameters
-from misc_functions import get_computed_cls
+from tools import get_computed_cls
 from mpi4py import MPI
 import time
 import itertools
@@ -13,20 +13,20 @@ import itertools
 param_file   = sys.argv[1]
 CONNECT_PATH = sys.argv[2]
 sampling     = sys.argv[3]
-param_file = CONNECT_PATH + '/' + param_file
+param_file = os.path.join(CONNECT_PATH, param_file)
 
 param        = Parameters(param_file)
 param_names  = list(param.parameters.keys())
 
-path = CONNECT_PATH + f'/data/{param.jobname}/'
+path = os.path.join(CONNECT_PATH, f'data/{param.jobname}')
 if sampling == 'iterative':
     try:
-        i = max([int(f.split('number_')[-1]) for f in os.listdir(path) if f.startswith('number')])
-        directory = path + f'number_{i}'
+        iteration = max([int(f.split('number_')[-1]) for f in os.listdir(path) if f.startswith('number')])
+        directory = os.path.join(path, f'number_{iteration}')
     except:
-        directory = path + f'N-{param.N}'
+        directory = os.path.join(path, f'N-{param.N}')
 elif sampling == 'lhc':
-    directory = path + f'N-{param.N}'
+    directory = os.path.join(path, f'N-{param.N}')
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -39,61 +39,16 @@ get_slave = itertools.cycle(range(1,N_slaves+1))
 ## rank == 0 (master)
 if rank == 0:
     if sampling == 'iterative':
-        model_param_scales = []
-        with open(directory + '/log.param','r') as f:
-            lines = list(f)
-            for i, name in enumerate(param_names):
-                for line in lines:
-                    if name in param.log_priors:
-                        if line.startswith(f"data.parameters['{name}_log10_prior']") and line.split("'")[-2] == 'cosmo':
-                            model_param_scales.append(np.float32(line.split('=')[-1].replace(' ','').split(',')[4]))
-                            break
-                    else:
-                        if line.startswith(f"data.parameters['{name}']") and line.split("'")[-2] == 'cosmo':
-                            model_param_scales.append(np.float32(line.split('=')[-1].replace(' ','').split(',')[4]))
-                            break
-        model_param_scales = np.array(model_param_scales)
-    
-        list_of_files = []
-        data = []
-        mp_names = []
-        total_lines = 0
-        lines_in_files = {}
-        for filename in os.listdir(directory):
-            if filename.endswith('.txt'):
-                list_of_files.append(directory + '/' + filename)
-            elif filename.endswith('.paramnames'):
-                with open(directory + '/' + filename, 'r') as f:
-                    f_list = list(f)
-                for line in f_list[0:len(param_names)]:
-                    name = line.replace(' ','').split('\t')[0]
-                    if name[-12:] == '_log10_prior' and name[:-12] in param.log_priors:
-                        name = name[:-12]
-                    mp_names.append(name)
+        exec(f'from source.mcmc_samplers.{param.mcmc_sampler} import {param.mcmc_sampler}')
+        _locals = {}
+        exec(f'mcmc = {param.mcmc_sampler}(param, CONNECT_PATH)', locals(), _locals)
+        mcmc = _locals['mcmc']
 
+        data = mcmc.import_points_from_chains(iteration)
 
-        for filename in list_of_files:
-            with open(filename, 'r') as f:
-                for line in f:
-                    data.append(np.float32(line.replace('\n','').split('\t')[1:len(param_names)+1])*model_param_scales)
-
-        data = np.array(data)
-        data=data.T
-
-        data_dict = {}
-        for i, name in enumerate(mp_names):
-            if name in param.log_priors:
-                data_dict[name] = np.power(10.,data[i])
-            else:
-                data_dict[name] = data[i]
-        data = []
-
-        for name in param_names:
-            data.append(data_dict[name])
-        data = np.array(data)
-        data = data.T
+        
     elif sampling == 'lhc':
-        with open(CONNECT_PATH + f'/data/lhc_samples/sample_models_{param.jobname}_{param.N}.txt','rb') as f:
+        with open(os.path.join(CONNECT_PATH, f'data/lhc_samples/{len(param.parameters.keys())}_{param.N}.sample'),'rb') as f:
             sample = pkl.load(f)
         data = sample.T
         for i, name in enumerate(param_names):
@@ -111,7 +66,7 @@ if rank == 0:
     sleep_long = 0.1
     sleep_dict = {}
     for r in range(1,N_slaves+1):
-        sleep_dict[str(r)] = 1
+        sleep_dict[r] = 1
 
     data_idx = 0
     while len(data) > data_idx:
@@ -120,9 +75,9 @@ if rank == 0:
             useless_info = comm.recv(source=r)
             comm.send(data[data_idx], dest=r)
             data_idx += 1
-            sleep_dict[str(r)] = 1
+            sleep_dict[r] = 1
         else:
-            sleep_dict[str(r)] = 0
+            sleep_dict[r] = 0
 
         if all(value == 0 for value in sleep_dict.values()):
             time.sleep(sleep_long)
@@ -137,23 +92,23 @@ if rank == 0:
 ## rank > 0 (slaves)
 else:
     # Directories for input (model parameters) and output (Cl data) data
-    in_dir           = directory + f'/model_params_data/model_params_{rank}.txt'
+    in_dir           = os.path.join(directory, f'model_params_data/model_params_{rank}.txt')
     out_dirs_Cl      = []
     out_dirs_Pk      = []
     out_dirs_bg      = []
     out_dirs_th      = []
     for Cl in param.output_Cl:
-        out_dirs_Cl.append(directory + f'/Cl_{Cl}_data/Cl_{Cl}_data_{rank}.txt')
+        out_dirs_Cl.append(os.path.join(directory, f'Cl_{Cl}_data/Cl_{Cl}_data_{rank}.txt'))
     for Pk in param.output_Pk:
-        out_dirs_Pk.append(directory + f'/Pk_{Pk}_data/Pk_{Pk}_data_{rank}.txt')
+        out_dirs_Pk.append(os.path.join(directory, f'Pk_{Pk}_data/Pk_{Pk}_data_{rank}.txt'))
     if len(param.output_Pk) > 0:
-        out_dir_kz_array = directory + f'/Pk_kz_array.txt'
+        out_dir_kz_array = os.path.join(directory, f'Pk_kz_array.txt')
     for bg in param.output_bg:
-        out_dirs_bg.append(directory + f'/{bg}_data/{bg}_data_{rank}.txt')
+        out_dirs_bg.append(os.path.join(directory, f'{bg}_data/{bg}_data_{rank}.txt'))
     for th in param.output_th:
-        out_dirs_th.append(directory + f'/{th}_data/{th}_data_{rank}.txt')
+        out_dirs_th.append(os.path.join(directory, f'{th}_data/{th}_data_{rank}.txt'))
     if len(param.output_derived) > 0:
-        out_dir_derived = directory + f'/derived_data/derived_data_{rank}.txt'
+        out_dir_derived = os.path.join(directory, f'derived_data/derived_data_{rank}.txt')
 
     param_header = '# '
     for par_name in param_names:
@@ -244,8 +199,8 @@ else:
                 ell = cls['ell'][2:]
             success = True
         except:
-            print('The following model failed in CLASS:')
-            print(params)
+            print('The following model failed in CLASS:', flush=True)
+            print(params, flush=True)
             success = False
 
         if success:
@@ -344,7 +299,7 @@ else:
                     else:
                         f.write(str(m)+'\n')
 
-
+        cosmo.struct_cleanup()
 
 MPI.Finalize()
 sys.exit(0)

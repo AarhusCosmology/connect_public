@@ -56,27 +56,48 @@ config = vars(args)
 """
 
 keyword       = sys.argv[1]
-param_file    = sys.argv[2]
-param         = Parameters(param_file)
-parameters    = param.parameters
+if keyword in ['create', 'train']:
+    param_file    = sys.argv[2]
+    param         = Parameters(param_file)
+    parameters    = param.parameters
 
-path = CONNECT_PATH + f'/data/{param.jobname}/'
+    path = CONNECT_PATH + f'/data/{param.jobname}/'
 
 #####################################
 # ____________ create _____________ #
 #####################################
 
 if keyword == 'create':
+    os.system(f'rm -f {path}output.log')
+
+    from source.tools import create_output_folders
+    create_output_folders(param, resume=param.resume_iterations) 
+
     from source.data_sampling import Sampling
     s = Sampling(param_file, CONNECT_PATH)
 
     if not os.path.isdir(path):
         os.mkdir(path)
-    with open(path+'output.log', 'w') as sys.stdout:
-        if param.sampling == 'iterative':
+    with open(os.path.join(CONNECT_PATH,'source/logo.txt'),'r') as f:
+        log_string = '-'*62+'\n\n\n' +                        \
+                     f.read()+'\n' +                          \
+                     '-'*62+'\n\n' +                          \
+                     'Running CONNECT\n' +                    \
+                    f'Parameter file     :  {param_file}\n' + \
+                     'Mode               :  Create'
+
+    if param.sampling == 'iterative':
+        with open(path+'output.log', 'w') as sys.stdout:
+            print(log_string, flush=True)
+            print('Sampling method    :  Iterative', flush=True)
+            print('\n'+'-'*62+'\n', flush=True)
             s.create_iterative_data()
             
-        elif param.sampling == 'lhc':
+    elif param.sampling == 'lhc':
+        with open(path+f'N-{param.N}/output.log', 'w') as sys.stdout:
+            print(log_string, flush=True)
+            print('Sampling method    :  Latin Hypercube', flush=True)
+            print('\n'+'-'*62+'\n', flush=True)
             s.create_lhc_data()
 
 
@@ -108,3 +129,12 @@ if keyword == 'train':
     tr.save_model()
     tr.save_history()
     tr.save_test_data()
+
+
+#####################################
+# ____________ animate ____________ #
+#####################################
+
+if keyword == 'animate':
+    from source.animate import play
+    play()
