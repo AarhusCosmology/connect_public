@@ -42,7 +42,7 @@ class Parameters():
         self.sigma_guesses        = getattr(param, 'sigma_guesses',        {}                  )
         self.keep_first_iteration = getattr(param, 'keep_first_iteration', False               )
         self.mcmc_tol             = getattr(param, 'mcmc_tol',             0.01                )
-        self.iter_tol             = getattr(param, 'iter_tol',             0.3                 )
+        self.iter_tol             = getattr(param, 'iter_tol',             0.01                )
         self.sampling_likelihoods = getattr(param, 'sampling_likelihoods', ['Planck_lite']     )
         self.extra_cobaya_lkls    = getattr(param, 'extra_cobaya_lkls',    {}                  ) 
 
