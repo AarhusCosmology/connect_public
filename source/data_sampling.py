@@ -183,6 +183,9 @@ class Sampling():
     def call_calc_models(self, sampling='lhc'):
         os.environ["export OMP_NUM_THREADS"] = str({self.N_cpus_per_task})
         os.environ["PMIX_MCA_gds"] = "hash"
+        sp.Popen("which python".split()).wait()
+        sp.Popen("ls".split(), shell=True, cwd=self.CONNECT_PATH).wait()
+        sp.Popen('echo "$SHELL"'.split(), shell=True, cwd=self.CONNECT_PATH).wait()
         sp.Popen(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split()).wait()
         os.environ["export OMP_NUM_THREADS"] = "1"
 

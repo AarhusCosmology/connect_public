@@ -47,7 +47,7 @@ normalization_method = 'standardization'  # Normalisation method for output data
 
 #########--------- Sampling parameters ---------#########
 
-N = 1e+4       # Amount of points in lhc. When using the iterative 
+N = 10**4       # Amount of points in lhc. When using the iterative 
                # method this number refers to only the initial lhc
 
 output_Cl      = ['tt', 'te', 'ee']         # Cl spectra in output

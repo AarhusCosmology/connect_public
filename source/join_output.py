@@ -70,20 +70,50 @@ class CreateSingleDataFile():
                                                 f.write(str(c)+'\n')
 
         for output in self.param.output_Pk:
+            output_dict = {'k': None, 'Pk': {}}
+            for z in self.param.z_list:
+                output_dict['Pk'][z]=[]
+            N = len(self.param.z_list) + 1
+            for filename in sorted(os.listdir(os.path.join(self.path, f'Pk_{output}_data'))):
+                if filename.endswith('.txt'):
+                    with open(os.path.join(self.path, f'Pk_{output}_data', filename),'r') as g:
+                        for i, line in enumerate(g):
+                            if i%N != 0:
+                                output_dict['Pk'][self.param.z_list[i%N-1]].append(line)
+                            elif output_dict['k'] == None and i == 0:
+                                output_dict['k'] = line
             with open(os.path.join(self.path, f'Pk_{output}.txt'),'w') as f:
-                for filename in sorted(os.listdir(os.path.join(self.path, f'Pk_{output}_data'))):
-                    if filename.endswith('.txt'):
-                        with open(os.path.join(self.path, f'Pk_{output}_data', filename),'r') as g:
-                            for line in g:
-                                f.write(line)
+                f.write(output_dict['k'])
+                for z in self.param.z_list:
+                    f.write(f'# z = {z}\n')
+                    for line in output_dict['Pk'][z]:
+                        f.write(line)
 
-        for output in self.param.output_bg + self.param.output_th:
-            with open(os.path.join(self.path, f'{output}.txt'),'w') as f:
-                for filename in sorted(os.listdir(os.path.join(self.path, f'{output}_data'))):
+        for output in self.param.output_bg:
+            i = 0
+            with open(os.path.join(self.path, f'bg_{output}.txt'),'w') as f:
+                for filename in sorted(os.listdir(os.path.join(self.path, f'bg_{output}_data'))):
                     if filename.endswith('.txt'):
-                        with open(os.path.join(self.path, f'{output}_data', filename),'r') as g:
-                            for line in g:
-                                f.write(line)
+                        with open(os.path.join(self.path, f'bg_{output}_data', filename),'r') as g:
+                            for j, line in enumerate(g):
+                                if j == 0 and i == 0:
+                                    f.write(line)
+                                    i = 1
+                                elif j%2 == 1:
+                                    f.write(line)
+
+        for output in self.param.output_th:
+            i = 0
+            with open(os.path.join(self.path, f'th_{output}.txt'),'w') as f:
+                for filename in sorted(os.listdir(os.path.join(self.path, f'th_{output}_data'))):
+                    if filename.endswith('.txt'):
+                        with open(os.path.join(self.path, f'th_{output}_data', filename),'r') as g:
+                            for j, line in enumerate(g):
+                                if j == 0 and i == 0:
+                                    f.write(line)
+                                    i = 1
+                                elif j%2 == 1:
+                                    f.write(line)
                                     
         if len(self.param.output_derived) > 0:
             i = 0

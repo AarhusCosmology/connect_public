@@ -40,6 +40,27 @@ def get_computed_cls(cosmo       # A computed CLASS model
     return new_cls
 
 
+def get_z_idx(z):
+    z=z.copy()
+    if z[-1] > z[0]:
+        grid = np.logspace(np.log10(z[1]), np.log10(z[-1]), 99)
+    else:
+        grid = np.logspace(np.log10(z[0]), np.log10(z[-2]), 99)
+    z_idx = []
+    for zg in grid:
+        i = np.abs(z-zg).argmin()
+        z[i] = np.inf
+        z_idx.append(i)
+    j = len(z) - 1
+    while len(z_idx) < 100:
+        if j in z_idx:
+            j -= 1
+        else:
+            z_idx.append(j)
+    return np.array(sorted(z_idx))
+
+
+
 def create_output_folders(param,            # Parameter object
                           iter_num=None,    # Current iteration number
                           reset=True,       # Resets output folders
@@ -61,9 +82,9 @@ def create_output_folders(param,            # Parameter object
                 for output in param.output_Pk:
                     os.mkdir(os.path.join(path, f'N-{param.N}/Pk_{output}_data'))
                 for output in param.output_bg:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/{output}_data'))
+                    os.mkdir(os.path.join(path, f'N-{param.N}/bg_{output}_data'))
                 for output in param.output_th:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/{output}_data'))
+                    os.mkdir(os.path.join(path, f'N-{param.N}/th_{output}_data'))
                 if len(param.output_derived) > 0:
                     os.mkdir(os.path.join(path, f'N-{param.N}/derived_data'))
 
@@ -85,10 +106,10 @@ def create_output_folders(param,            # Parameter object
                 os.mkdir(os.path.join(path, f'number_{iter_num}/Pk_{output}_data'))
             for output in param.output_bg:
                 os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/{output}_data'))
+                os.mkdir(os.path.join(path, f'number_{iter_num}/bg_{output}_data'))
             for output in param.output_th:
                 os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/{output}_data'))
+                os.mkdir(os.path.join(path, f'number_{iter_num}/th_{output}_data'))
             if len(param.output_derived) > 0:
                 os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/derived_data')}")
                 os.mkdir(os.path.join(path, f'number_{iter_num}/derived_data'))
@@ -130,11 +151,11 @@ def combine_iterations_data(param,             # Parameter object
         combine_sets_of_data_files(os.path.join(path_i, f'Pk_{output}.txt'),
                                    os.path.join(path_j, f'Pk_{output}.txt'))
     for output in param.output_bg:
-        combine_sets_of_data_files(os.path.join(path_i, f'Cl_{output}.txt'),
-                                   os.path.join(path_j, f'Cl_{output}.txt'))
+        combine_sets_of_data_files(os.path.join(path_i, f'bg_{output}.txt'),
+                                   os.path.join(path_j, f'bg_{output}.txt'))
     for output in param.output_th:
-        combine_sets_of_data_files(os.path.join(path_i, f'{output}.txt'),
-                                   os.path.join(path_j, f'{output}.txt'))
+        combine_sets_of_data_files(os.path.join(path_i, f'th_{output}.txt'),
+                                   os.path.join(path_j, f'th_{output}.txt'))
 
 
 

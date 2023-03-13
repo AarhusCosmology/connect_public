@@ -99,6 +99,61 @@ class Training():
             output_size_iter += len(out[0])
 
 
+        if len(self.param.output_Pk) > 0:
+            if self.output_normalize['method'] in ['factor','log']:
+                self.output_normalize['Pk'] = {}
+            self.output_interval['Pk']  = {}
+        for output in self.param.output_Pk:
+            self.output_interval['Pk'][output] = {}
+            out = {}
+            for z in self.param.z_list:
+                out[z] = []
+            z_idx = 0
+            with open(os.path.join(self.load_path, f'Pk_{output}.txt'), 'r') as f:
+                for i, line in enumerate(f):
+                    if i == 0:
+                        k_grid = np.float32(line.replace('\n','').split('\t'))
+                        if not hasattr(self, 'output_k_grid'):
+                            self.output_k_grid = k_grid
+                    else:
+                        if line[0] == '#':
+                            z = self.param.z_list[z_idx]
+                            z_idx += 1
+                            j = 0
+                        if j > 0:
+                            if j == 1:
+                                if self.output_normalize['method'] == 'factor':
+                                    self.output_normalize['Pk'][output][z] = 1./max(
+                                        np.float32(line.replace('\n','').split('\t')))
+                                ell_weights.append(k_grid * 15000) # rough translation between elll and k
+                            if self.output_normalize['method'] == 'factor':
+                                out[z].append(self.output_normalize['Pk'][output][z]*np.float32(
+                                    line.replace('\n','').split('\t')))
+                            else:
+                                out[z].append(np.float32(line.replace('\n','').split('\t')))
+                        j += 1
+            for z in self.param.z_list:
+                if self.output_normalize['method'] == 'log':
+                    self.output_normalize['Pk'][output][z] = []
+                    if np.min(out[z]) <= 0:
+                        offset = -(np.min(out[z])*1.01)
+                        self.output_normalize['Pk'][output][z].append(offset)
+                        out[z] = np.array(out[z]) + offset
+                    else:
+                        self.output_normalize['Pk'][output][z].append(0)
+                    out[z] = np.log(out[z])
+                    if np.min(out[z]) <= 0:
+                        offset = -(np.min(out[z])*1.01)
+                        self.output_normalize['Pk'][output][z].append(offset)
+                        out[z] = np.array(out[z]) + offset
+                    else:
+                        self.output_normalize['Pk'][output][z].append(0)
+                    out[z] = np.log(out[z])
+                outputs.append(out[z])
+                self.output_interval['Pk'][output][z] = [output_size_iter, output_size_iter + len(out[z][0])]
+                output_size_iter += len(out[z][0])
+
+
         if len(self.param.output_bg) > 0:
             if self.output_normalize['method'] in ['factor','log']:
                 self.output_normalize['bg'] = {}
@@ -108,15 +163,19 @@ class Training():
             with open(os.path.join(self.load_path, f'bg_{output}.txt'), 'r') as f:
                 for i, line in enumerate(f):
                     if i == 0:
-                        if self.output_normalize['method'] == 'factor':
-                            self.output_normalize['bg'][output] = 1./max(
-                                np.float32(line.replace('\n','').split('\t')))
-                        ell_weights.append(10**4*np.ones(line.count('\t')+1))
-                    if self.output_normalize['method'] == 'factor':
-                        out.append(self.output_normalize['bg'][output]*np.float32(
-                            line.replace('\n','').split('\t')))
+                        if not hasattr(self, 'output_z_bg'):
+                            self.output_z_bg = np.float32(line.replace('\n','').split('\t'))
                     else:
-                        out.append(np.float32(line.replace('\n','').split('\t')))
+                        if i == 1:
+                            if self.output_normalize['method'] == 'factor':
+                                self.output_normalize['bg'][output] = 1./max(
+                                    np.float32(line.replace('\n','').split('\t')))
+                            ell_weights.append(10**4*np.ones(line.count('\t')+1))
+                        if self.output_normalize['method'] == 'factor':
+                            out.append(self.output_normalize['bg'][output]*np.float32(
+                                line.replace('\n','').split('\t')))
+                        else:
+                            out.append(np.float32(line.replace('\n','').split('\t')))
             if self.output_normalize['method'] == 'log':
                 self.output_normalize['bg'][output] = []
                 if np.min(out) <= 0:
@@ -147,15 +206,19 @@ class Training():
             with open(os.path.join(self.load_path, f'th_{output}.txt'), 'r') as f:
                 for i, line in enumerate(f):
                     if i == 0:
-                        if self.output_normalize['method'] == 'factor':
-                            self.output_normalize['th'][output] = 1./max(
-                                np.float32(line.replace('\n','').split('\t')))
-                        ell_weights.append(10**4*np.ones(line.count('\t')+1))
-                    if self.output_normalize['method'] == 'factor':
-                        out.append(self.output_normalize['th'][output]*np.float32(
-                            line.replace('\n','').split('\t')))
+                        if not hasattr(self, 'output_z_th'):
+                            self.output_z_th = np.float32(line.replace('\n','').split('\t'))
                     else:
-                        out.append(np.float32(line.replace('\n','').split('\t')))
+                        if i == 1:
+                            if self.output_normalize['method'] == 'factor':
+                                self.output_normalize['th'][output] = 1./max(
+                                    np.float32(line.replace('\n','').split('\t')))
+                            ell_weights.append(10**4*np.ones(line.count('\t')+1))
+                        if self.output_normalize['method'] == 'factor':
+                            out.append(self.output_normalize['th'][output]*np.float32(
+                                line.replace('\n','').split('\t')))
+                        else:
+                            out.append(np.float32(line.replace('\n','').split('\t')))
             if self.output_normalize['method'] == 'log':
                 self.output_normalize['th'][output] = []
                 if np.min(out) <= 0:
@@ -225,9 +288,9 @@ class Training():
                         self.output_normalize['derived'][output].append(0)
                     output_derived.T[i] = np.log(out)
             outputs.append(output_derived)
-        
-        self.output_dim = output_size_iter
 
+
+        self.output_dim = output_size_iter
 
         outputs = np.concatenate(outputs, axis=1)
 
@@ -240,6 +303,10 @@ class Training():
                 variance = var
                 x_normed = (x - mean) / np.sqrt(var + epsilon) # epsilon to avoid dividing by zero
                 var = np.var(x_normed)
+                if variance == 0 and mean == 0:
+                    return x_normed, mean, variance
+                elif variance == 0:
+                    return x_normed, mean, variance
                 while var > 1+delta or var < 1-delta:
                     x_normed = x_normed/np.sqrt(var + epsilon)
                     variance = (variance + epsilon)*(var + epsilon)
@@ -309,10 +376,13 @@ class Training():
             self.output_info['ell']       = self.output_ell
             self.output_info['output_Cl'] = self.param.output_Cl
         if len(self.param.output_Pk) > 0:
+            self.output_info['k_grid']    = self.output_k_grid
             self.output_info['output_Pk'] = self.param.output_Pk
         if len(self.param.output_bg) > 0:
+            self.output_info['z_bg']      = self.output_z_bg
             self.output_info['output_bg'] = self.param.output_bg
         if len(self.param.output_th) > 0:
+            self.output_info['z_th']      = self.output_z_th
             self.output_info['output_th'] = self.param.output_th
         if len(self.param.output_derived) > 0:
             self.output_info['output_derived'] = self.param.output_derived

@@ -65,6 +65,9 @@ class Class(real_classy.Class):
 
         self.param_names = self.output_info['input_names']
         self.output_Cl = self.output_info['output_Cl']
+        self.output_Pk = self.output_info['output_Pk']
+        self.output_bg = self.output_info['output_bg']
+        self.output_th = self.output_info['output_th']
         self.output_derived = self.output_info['output_derived']
         self.ell_computed = self.output_info['ell']
         self.output_interval = self.output_info['interval']
@@ -300,6 +303,39 @@ class Class(real_classy.Class):
             out_dict[name] = value 
 
         return out_dict
+
+
+    def get_background(self):
+        if not hasattr(self, 'output_predict'):
+            self.compute()
+
+        z_bg = self.output_info['z_bg']
+        z_out = np.linspace(z_bg[-1],z_bg[0],1000)
+        bg_dict={'z':z_out}
+        for output in self.output_bg:
+            out = self.output_predict[self.output_interval['bg'][output][0]:
+                                      self.output_interval['bg'][output][1]]
+            out_s = CubicSpline(z_bg, out, bc_type='natural')(z_out)
+            bg_dict[output] = out_s
+
+        return bg_dict
+
+
+    def get_thermodynamics(self):
+        if not hasattr(self, 'output_predict'):
+            self.compute()
+
+        z_th = self.output_info['z_th']
+        z_out = np.linspace(z_th[0],z_th[-1],10000)
+        th_dict={'z':z_out}
+        for output in self.output_th:
+            out = self.output_predict[self.output_interval['th'][output][0]:
+                                      self.output_interval['th'][output][1]]
+            out_s = CubicSpline(z_th, out, bc_type='natural')(z_out)
+            th_dict[output] = out_s
+
+        return th_dict
+    
 
 
 sys.path.insert(0, p_backup)

@@ -8,11 +8,11 @@ MPARGS+=" -N 1000000"
 MPARGS+=" --conf ${3}"
 MPARGS+=" -j fast -f 2.1 --silent"
 MPARGS+=" --update 1000"
-MPARGS+=" -T ${6}"
+MPARGS+=" -T ${4}"
 mkdir -p $output_dir
 
-mcmc_tol=$4
-node=$5
+mcmc_tol=$5
+node=$6
 
 if ! [ $node == "None" ]
 then

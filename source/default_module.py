@@ -27,7 +27,8 @@ class Parameters():
         self.extra_input          =     getattr(param, 'extra_input',          {}                  )
         self.output_Cl            =     getattr(param, 'output_Cl',            ['tt']              )
         self.output_Pk            =     getattr(param, 'output_Pk',            []                  )
-        self.output_Pk_grid       =     getattr(param, 'output_Pk_grid',       self.get_kz_array() )
+        self.k_grid               =     getattr(param, 'k_grid',               self.get_k_grid()   )
+        self.z_list               =     getattr(param, 'z_list',               [0.0]               )
         self.output_bg            =     getattr(param, 'output_bg',            []                  )
         self.output_th            =     getattr(param, 'output_th',            []                  )
         self.output_derived       =     getattr(param, 'output_derived',       []                  )
@@ -48,26 +49,14 @@ class Parameters():
         self.sampling_likelihoods =     getattr(param, 'sampling_likelihoods', ['Planck_lite']     )
         self.extra_cobaya_lkls    =     getattr(param, 'extra_cobaya_lkls',    {}                  )
 
-    def get_kz_array(self):
+    def get_k_grid(self):
         if len(self.output_Pk) > 0:
-            z_vec = np.logspace(np.log(1e-2),
-                                np.log(20),
-                                10)
-            z_vec = np.insert(z_vec,
-                              0, 
-                              0.0)
-            k_vec = np.array(
-                sorted(
-                    list(np.logspace(np.log(0.04),
-                                     np.log(0.5),
-                                     30,base=np.exp(1.0)))
-                    +
-                    [x for x in np.array(
-                        [x if x < 0.04 or x > 0.5 else None
-                         for x in np.logspace(np.log(1e-3),
-                                              np.log(1.0),
-                                              20,
-                                              base=np.exp(1.0))]) if x is not None]))
-            return [k_vec, z_vec]
+            k_grid = np.sort(np.concatenate([np.logspace(np.log10(5e-6),  np.log10(5e-5),  15),
+                                             np.logspace(np.log10(1e-4),  np.log10(0.008), 8),
+                                             np.logspace(np.log10(0.76),  np.log10(5),     17),
+                                             np.logspace(np.log10(0.009), np.log10(0.75),  60)]))
+            k_grid *= 0.67556 # value of h in LCDM
+            return k_grid
+
         else:
             return None
