@@ -275,7 +275,6 @@ then
 	montepython_path="${PWD}/resources/montepython_public"
 	echo "--> ..done!"
 	
-<<<<<<< HEAD
 	if [ $Ans2_1 == $YES ]
 	then
 	    echo "--> Installing MultiNest..."
@@ -290,20 +289,6 @@ then
 	    # Remember to add MultiNest to LD_LIBRARY_PATH when using
 	    # export LD_LIBRARY_PATH=$PWD/MultiNest/lib/:$LD_LIBRARY_PATH
 	fi
-=======
-	echo "--> Installing MultiNest..."
-	cd resources
-	git clone https://github.com/JohannesBuchner/MultiNest.git
-	rm -rf MultiNest/build/*
-	cd MultiNest/build
-	CC=gcc CXX=g++ cmake -D CMAKE_Fortran_COMPILER=gfortran ..
-	make
-	cd ../..
-	echo "--> ...done!"
-	# Remember to add MultiNest to LD_LIBRARY_PATH when using
-	# export LD_LIBRARY_PATH=$PWD/MultiNest/lib/:$LD_LIBRARY_PATH
-
->>>>>>> Added MultiNest and PolyChord to setup.sh
     fi
     
     if [ -z $clik_path ]
