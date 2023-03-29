@@ -263,7 +263,7 @@ then
     conda env remove -y --name $env_name
     conda create -y --name $env_name python=3.10 cython matplotlib scipy numpy astropy pip numexpr pandas
     conda activate $env_name
-    pip install tensorflow-gpu mpi4py pymultinest
+    pip install tensorflow mpi4py pymultinest
     pip install git+https://github.com/PolyChord/PolyChordLite@master
     
     echo "--> ..done!"
@@ -288,7 +288,7 @@ then
 	cd MultiNest/build
 	CC=gcc CXX=g++ cmake -D CMAKE_Fortran_COMPILER=gfortran ..
 	make
-	cd ../..
+	cd ../../..
 	echo "--> ...done!"
 	# Remember to add MultiNest to LD_LIBRARY_PATH when using
 	# export LD_LIBRARY_PATH=$PWD/MultiNest/lib/:$LD_LIBRARY_PATH
