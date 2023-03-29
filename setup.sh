@@ -250,6 +250,9 @@ function install_clik {
 }
 
 
+module load gcc openmpi cmake
+conda init
+source ~/.bashrc
 
 
 if [ $Ans1 == $YES ]
@@ -258,10 +261,11 @@ then
     conda clean --index-cache
     # Remove ConnectEnvironment if it exists
     conda env remove -y --name $env_name
-    conda create -y --name $env_name
-    source activate $env_name
-    conda install -y cython matplotlib scipy numpy astropy openmpi mpi4py
-    conda install -y -c anaconda tensorflow-gpu
+    conda create -y --name $env_name python=3.10 cython matplotlib scipy numpy astropy pip numexpr pandas
+    conda activate $env_name
+    pip install tensorflow-gpu mpi4py pymultinest
+    pip install git+https://github.com/PolyChord/PolyChordLite@master
+    
     echo "--> ..done!"
 fi
 
@@ -276,6 +280,19 @@ then
 	cd ..
 	montepython_path="${PWD}/resources/montepython_public"
 	echo "--> ..done!"
+	
+	echo "--> Installing MultiNest..."
+	cd resources
+	git clone https://github.com/JohannesBuchner/MultiNest.git
+	rm -rf MultiNest/build/*
+	cd MultiNest/build
+	CC=gcc CXX=g++ cmake -D CMAKE_Fortran_COMPILER=gfortran ..
+	make
+	cd ../..
+	echo "--> ...done!"
+	# Remember to add MultiNest to LD_LIBRARY_PATH when using
+	# export LD_LIBRARY_PATH=$PWD/MultiNest/lib/:$LD_LIBRARY_PATH
+
     fi
     
     if [ -z $clik_path ]
@@ -313,7 +330,7 @@ then
     echo "--> Installing Cobaya..."
     if ! [ -z $env_name ]
     then
-        source activate $env_name
+        conda activate $env_name
     fi
     python -m pip install cobaya --upgrade
     echo "--> ...done!"
@@ -326,12 +343,8 @@ then
 	echo "--> Installing Planck likelihood code..."
 	connect_path=$PWD
 	cd $clik_path
-	module load mkl
-	module load intel
 	./waf configure --lapack_mkl=$MKLROOT --cfitsio_prefix=$PWD/cfitsio-3.47
 	./waf install
-	module unload mkl
-	module unload intel
 	cd $connect_path
 	echo "-->...done!"
     fi
@@ -351,7 +364,7 @@ if [ $Ans4 == $YES ]
 then
     if ! [ -z $env_name ]
     then
-        source activate $env_name
+        conda activate $env_name
     fi
     if ! [ -z $class_path ]
     then
@@ -380,7 +393,7 @@ then
     echo "--> Installing CAMB..."
     if ! [ -z $env_name ]
     then
-        source activate $env_name
+        conda activate $env_name
     fi
     python -m pip install camb --upgrade
     echo "--> ...done!"
