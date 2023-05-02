@@ -10,7 +10,12 @@ class Dense_model(tf.keras.Model):
                  activation='alsing',
                  normalizer = 0,
                  num_hidden_layers = 4,
+                 dropout = True,
+                 batch_norm = True,
                  output_info = 0):
+
+        self.dropout_bool = dropout
+        self.batch_norm_bool = batch_norm
 
         # Inherit from tf.keras.Model
         super(Dense_model, self).__init__()
@@ -54,8 +59,9 @@ class Dense_model(tf.keras.Model):
         x = self.input_layer(x)
         for i in range(self.num_hidden_layers):
             x = self.hidden_layers[i](x)
-            x = self.dropout_layers[i](x)
-            if i%5 == 4:
+            if self.dropout_bool:
+                x = self.dropout_layers[i](x)
+            if i%5 == 4 and self.batch_norm_bool:
                 x = self.batch_norm_layers[int(i/5)](x)
         x = self.output_layer(x)
         return x
