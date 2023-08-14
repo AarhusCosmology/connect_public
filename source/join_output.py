@@ -1,6 +1,7 @@
+import os
+
 import numpy as np
 from scipy.interpolate import CubicSpline
-import os
 
 class CreateSingleDataFile():
     def __init__(self, param, CONNECT_PATH):
@@ -68,7 +69,6 @@ class CreateSingleDataFile():
                                             else:
                                                 f.write(str(c)+'\n')
 
-
         for output in self.param.output_Pk:
             with open(os.path.join(self.path, f'Pk_{output}.txt'),'w') as f:
                 for filename in sorted(os.listdir(os.path.join(self.path, f'Pk_{output}_data'))):
@@ -76,7 +76,6 @@ class CreateSingleDataFile():
                         with open(os.path.join(self.path, f'Pk_{output}_data', filename),'r') as g:
                             for line in g:
                                 f.write(line)
-
 
         for output in self.param.output_bg + self.param.output_th:
             with open(os.path.join(self.path, f'{output}.txt'),'w') as f:
@@ -110,3 +109,7 @@ class CreateSingleDataFile():
                                 i = 1
                             elif line[0] != '#':
                                 f.write(line)
+
+        for folder in [f for f in os.listdir(self.path) if f.endswith('_data')]:
+            os.system(f'rm -rf {self.path}/{folder}')
+

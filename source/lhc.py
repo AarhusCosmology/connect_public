@@ -1,6 +1,7 @@
-from scipy.stats import qmc
-import pickle as pkl
 import os
+import pickle as pkl
+
+from scipy.stats import qmc
 
 class LatinHypercubeSampler():
     def __init__(self, param):

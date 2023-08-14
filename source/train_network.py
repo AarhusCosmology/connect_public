@@ -1,11 +1,13 @@
-from source.custom_functions import LossFunctions
-from source.architecture.sequential_models import Dense_model
-import source.callbacks as cb
-import tensorflow as tf
-import numpy as np
-import pickle
 import os
 import sys
+import pickle
+
+import tensorflow as tf
+import numpy as np
+
+from .custom_functions import LossFunctions
+from .architecture.sequential_models import Dense_model
+from .callbacks import KeepBestEpoch
 
 class Training():
 
@@ -414,7 +416,7 @@ class Training():
         self.history = self.model.fit(self.train_dataset,
                                       epochs=self.param.epochs,
                                       validation_data=self.val_dataset,
-                                      callbacks=[cb.KeepBestEpoch()])
+                                      callbacks=[KeepBestEpoch()])
 
         if output_file != None:
             sys.stdout.close()

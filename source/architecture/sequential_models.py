@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
-from source.custom_functions import ActivationFunctions
+
+from ..custom_functions import ActivationFunctions
 
 class Dense_model(tf.keras.Model):
     def __init__(self,

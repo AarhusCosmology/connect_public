@@ -1,20 +1,24 @@
-import numpy as np
-from classy import Class
-from scipy.stats import qmc
-import pickle as pkl
-import sys
 import os
-from default_module import Parameters
-from tools import get_computed_cls
-from mpi4py import MPI
+import sys
 import time
 import itertools
+import pickle as pkl
 
 param_file   = sys.argv[1]
 CONNECT_PATH = sys.argv[2]
 sampling     = sys.argv[3]
-param_file = os.path.join(CONNECT_PATH, param_file)
+sys.path.insert(0,CONNECT_PATH)
 
+import numpy as np
+from classy import Class
+from scipy.stats import qmc
+from mpi4py import MPI
+
+from source.default_module import Parameters
+from source.tools import get_computed_cls
+
+
+param_file = os.path.join(CONNECT_PATH, param_file)
 param        = Parameters(param_file)
 param_names  = list(param.parameters.keys())
 
