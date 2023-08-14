@@ -20,6 +20,7 @@ sys.path.insert(1, CONNECT_PATH)
 
 from source.default_module import Parameters
 
+
 """
 parser = argparse.ArgumentParser(description="CONNECT - create training data and train neural networks",formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("keyword", help="What connect should do, 'create' or 'train'")
@@ -68,7 +69,12 @@ if keyword in ['create', 'train']:
 #####################################
 
 if keyword == 'create':
-    os.system(f'rm -f {path}output.log')
+    if not param.resume_iterations:
+        os.system(f'rm -f {path}output.log')
+    else:
+        os.system('echo "'+62*'#'+f'" >> {path}output.log')
+        os.system('echo "'+7*'Resuming '+f'" >> {path}output.log')
+        os.system('echo "'+62*'#'+f'" >> {path}output.log')
 
     from source.tools import create_output_folders
     create_output_folders(param, resume=param.resume_iterations) 
@@ -78,7 +84,7 @@ if keyword == 'create':
 
     if not os.path.isdir(path):
         os.mkdir(path)
-    with open(os.path.join(CONNECT_PATH,'source/logo.txt'),'r') as f:
+    with open(os.path.join(CONNECT_PATH,'source/logo_colour.txt'),'r') as f:
         log_string = '-'*62+'\n\n\n' +                        \
                      f.read()+'\n' +                          \
                      '-'*62+'\n\n' +                          \
@@ -86,19 +92,23 @@ if keyword == 'create':
                     f'Parameter file     :  {param_file}\n' + \
                      'Mode               :  Create'
 
+    mode = param.resume_iterations*'a+' + (not param.resume_iterations)*'w'
+
     if param.sampling == 'iterative':
-        with open(path+'output.log', 'w') as sys.stdout:
+        with open(path+'output.log', mode) as sys.stdout:
             print(log_string, flush=True)
             print('Sampling method    :  Iterative', flush=True)
             print('\n'+'-'*62+'\n', flush=True)
             s.create_iterative_data()
             
     elif param.sampling == 'lhc':
-        with open(path+f'N-{param.N}/output.log', 'w') as sys.stdout:
+        with open(path+f'N-{param.N}/output.log', mode) as sys.stdout:
             print(log_string, flush=True)
             print('Sampling method    :  Latin Hypercube', flush=True)
             print('\n'+'-'*62+'\n', flush=True)
             s.create_lhc_data()
+            from source.tools import join_data_files
+            join_data_files(param)
 
 
 #####################################
