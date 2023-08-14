@@ -1,15 +1,18 @@
-import numpy as np
 import os
 import subprocess as sp
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from source.lhc import LatinHypercubeSampler
-from source.join_output import CreateSingleDataFile
-from source.train_network import Training
-import source.tools as tools
-from source.default_module import Parameters
 import fileinput
 import shutil
 import pickle as pkl
+
+import numpy as np
+
+from .lhc import LatinHypercubeSampler
+from .join_output import CreateSingleDataFile
+from .train_network import Training
+from .default_module import Parameters
+from .tools import create_output_folders, join_data_files, combine_iterations_data 
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class Sampling():
     def __init__(self, param_file, CONNECT_PATH):
@@ -33,7 +36,16 @@ class Sampling():
         exec(f'mcmc = {self.param.mcmc_sampler}(self.param, self.CONNECT_PATH)', locals(), _locals)
         mcmc = _locals['mcmc']
 
+        annealing = isinstance(self.param.temperature, list)
+        if annealing:
+            temp_len = len(self.param.temperature)
+            temperature = self.param.temperature[0]
+        else:
+            temp_len = 0
+            temperature = self.param.temperature
+
         mcmc.check_version()
+        i_converged = 10000
         if self.param.resume_iterations:
             i = max([int(f.split('number_')[-1]) for f in os.listdir(self.data_path) if f.startswith('number')])
             print('i =',i)
@@ -46,6 +58,11 @@ class Sampling():
             if not os.path.isdir(os.path.join(self.data_path, 'compare_iterations')):
                 os.system(f"mkdir {self.data_path}/compare_iterations")
                 mcmc.Gelman_Rubin_log_ini()
+            with open(os.path.join(self.data_path, 'output.log'), 'r') as f:
+                for line in f:
+                    if "will be the last with same temperature since convergence in" in line:
+                        i_converged = int(line.split(' ')[1])
+                        break
         else:
             self.copy_param_file()
             if not os.path.isdir(self.data_path):
@@ -70,10 +87,14 @@ class Sampling():
 
         kill_iteration = False
         while True:
+            if i > i_converged and annealing:
+                temperature = self.param.temperature[i-i_converged]
             print(f'\n\nBeginning iteration no. {i}', flush=True)
+            print(f'Temperature is now {temperature}', flush=True)
             print(f'Running MCMC sampling no. {i}...', flush=True)
+            mcmc.temperature = temperature
             mcmc.run_mcmc_sampling(model, i)
-            print(f'MCMC sampling stopped since R-1 less than {self.param.mcmc_tol} has been reached', flush=True)
+            print(f'MCMC sampling stopped since R-1 less than {self.param.mcmc_tol} has been reached.', flush=True)
 
             N_acc = mcmc.get_number_of_accepted_steps(i)
             print(f'Number of accepted steps: {N_acc}', flush=True)
@@ -84,27 +105,35 @@ class Sampling():
             N_keep = mcmc.filter_chains(N_keep,i)
             print(f'Keeping only last {N_keep} of the accepted Markovian steps', flush=True)
             print('Comparing latest iterations...', flush=True)
-            if i > 1:
+            if i > 1 and not kill_iteration:
                 kill_iteration = mcmc.compare_iterations(i)
-            if i > int(not self.param.keep_first_iteration) + 1:
-                model_params=f"data/{self.param.jobname}/number_{i-1}/model_params.txt"
-                N_accepted=mcmc.discard_oversampled_points(model_params,i)
-                N_in_data_set = mcmc.get_number_of_data_points(i-1)+ N_accepted
+            if i > int(not self.param.keep_first_iteration) + 1 and i <= i_converged:
+                N_accepted=mcmc.discard_oversampled_points(i)
+                N_in_data_set = mcmc.get_number_of_data_points(i-1) + N_accepted
                 print(f"Accepted {N_accepted} points out of {N_keep}", flush=True)
             else:
                 N_accepted=N_keep
                 N_in_data_set = 0
 
             if kill_iteration and N_accepted < 0.1*N_in_data_set:
-                print(f"Iteration {i} will be the last since convergence in data has been reached", flush=True)
-                print(f"and less than 10% of the data was added in this iteration")
+                i_converged = i
+                if annealing:
+                    print(f"Iteration {i} will be the last with same temperature since convergence in", flush=True)
+                    print(f"data has been reached and less than 10% of the data was added in this iteration.", flush=True)
+                    print(f"Iterations will now continue according to temperature schedule.", flush=True)
+                else:
+                    print(f"Iteration {i} will be the last since convergence in data has been reached", flush=True)
+                    print(f"and less than 10% of the data was added in this iteration.", flush=True)
+            else:
+                kill_iteration = False
+
             
             print(f'Calculating {N_accepted} CLASS models', flush=True)
-            tools.create_output_folders(self.param, iter_num=i, reset=False)
+            create_output_folders(self.param, iter_num=i, reset=False)
             self.call_calc_models(sampling='iterative')
-            tools.join_data_files(self.param)
-            if i > int(not self.param.keep_first_iteration) + 1:
-                tools.combine_iterations_data(self.param, i)
+            join_data_files(self.param)
+            if i > int(not self.param.keep_first_iteration) + 1 and i <= i_converged:
+                combine_iterations_data(self.param, i)
                 print(f"Copied data from data/{self.param.jobname}/number_{i-1} into data/{self.param.jobname}/number_{i}", flush=True)
 
             print("Training neural network", flush=True)
@@ -112,7 +141,10 @@ class Sampling():
                                               output_file=os.path.join(self.data_path,
                                                                        f'number_{i}/training.log'))
             
-            if kill_iteration and N_accepted < 0.1*N_in_data_set:
+            if kill_iteration and N_accepted < 0.1*N_in_data_set and not annealing:
+                print(f"Final model is {model}", flush=True)
+                break
+            if i == i_converged+temp_len-1 and annealing:
                 print(f"Final model is {model}", flush=True)
                 break
             else:
@@ -128,6 +160,7 @@ class Sampling():
                     jobname_specified = True
             if not jobname_specified:
                 f.write(f"\njobname = '{self.param.jobname}'")
+        self.param.param_file = self.CONNECT_PATH+'/'+self.data_path+'/log_connect.param'
 
     def latin_hypercube_sampling(self):
         if not os.path.isfile(self.CONNECT_PATH+f'/data/lhc_samples/{len(self.param.parameters.keys())}_{self.param.N}.sample'):

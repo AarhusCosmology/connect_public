@@ -1,8 +1,10 @@
-import numpy as np
 import os
 import subprocess as sp
 import pickle as pkl
-from source.mcmc_base import MCMC_base_class
+
+import numpy as np
+
+from ..mcmc_base import MCMC_base_class
 
 
 class cobaya(MCMC_base_class):
@@ -14,7 +16,7 @@ class cobaya(MCMC_base_class):
             mpi_flag = f" -np 4 --host {self.mcmc_node}"
         else:
             mpi_flag = " -np 4"
-        sp.Popen(f"mpirun {mpi_flag} python {self.CONNECT_PATH}/source/mcmc_samplers/run_scripts/run_cobaya_iteration.py {model} {iteration} {self.param.param_file}".split()).wait()
+        sp.Popen(f"mpirun {mpi_flag} python {self.CONNECT_PATH}/source/mcmc_samplers/run_scripts/run_cobaya_iteration.py {model} {iteration} {self.param.param_file} {self.temperature}".split()).wait()
     
     def get_number_of_accepted_steps(self, iteration):
         directory = os.path.join(self.CONNECT_PATH,f'data/{self.param.jobname}/number_{iteration}')

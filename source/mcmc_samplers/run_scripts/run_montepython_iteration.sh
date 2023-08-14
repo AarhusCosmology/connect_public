@@ -8,7 +8,7 @@ MPARGS+=" -N 5000000000"
 MPARGS+=" --conf ${3}"
 MPARGS+=" -j fast -f 2.1 --silent"
 MPARGS+=" --update 1000"
-MPARGS+=" -T 5.0"
+MPARGS+=" -T ${6}"
 mkdir -p $output_dir
 
 mcmc_tol=$4
