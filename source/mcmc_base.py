@@ -1,7 +1,9 @@
-import numpy as np
 import os
 import subprocess as sp
-import source.tools as tools
+
+import numpy as np
+
+from .tools import get_node_with_most_cpus
 
 class MCMC_base_class():
     # A new mcmc sampler class that inherits from this class must contain the following methods:
@@ -22,8 +24,9 @@ class MCMC_base_class():
         self.CONNECT_PATH = CONNECT_PATH
         slurm_bool = int(sp.run('if [ -z $SLURM_NPROCS ]; then echo 0; else echo 1; fi', shell=True, stdout=sp.PIPE).stdout.decode('utf-8'))
         self.mcmc_node = None
+        self.temperature = 0.0
         if slurm_bool:
-            self.mcmc_node = tools.get_node_with_most_cpus()
+            self.mcmc_node = get_node_with_most_cpus()
         os.environ["OMPI_MCA_rmaps_base_oversubscribe"] = "1"
 
 
@@ -103,10 +106,10 @@ class MCMC_base_class():
 
 
     def discard_oversampled_points(self,
-                                   file_old_data,    # model_params.txt file with all the previous data
                                    iteration         # Current iteration number
                                ):
 
+        file_old_data = f"data/{self.param.jobname}/number_{iteration-1}/model_params.txt"
         points1, points2 = self.import_points_to_compare(file_old_data, iteration)
 
         num_points_in_vicinity = 10

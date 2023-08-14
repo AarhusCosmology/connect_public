@@ -3,13 +3,18 @@ import tensorflow as tf
 import numpy as np
 
 class LossFunctions():
-    
+
     def __init__(self, ell):
         self.ell = ell
-    
+
     def cosmic_variance(self, y_actual, y_pred):
         Var  = tf.constant(2/(2 * self.ell + 1), dtype=tf.float32)
         loss = tf.divide(tf.square(y_actual-y_pred),Var)
+        return loss
+
+    def minkowski(self, y_actual, y_pred):
+        Var  = tf.constant(2/(2 * self.ell + 1), dtype=tf.float32)
+        loss = tf.divide(tf.pow(tf.abs(y_actual-y_pred), 1.5),Var)
         return loss
 
 

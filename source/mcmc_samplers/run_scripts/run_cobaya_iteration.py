@@ -1,16 +1,19 @@
+import os
+import sys
+import pickle as pkl
+from pathlib import Path
+
 from cobaya.run import run
 from cobaya.log import LoggedError
-from source.default_module import Parameters
-from pathlib import Path
 from mpi4py import MPI
 import numpy as np
-import sys
-import os
-import pickle as pkl
+
+from ...default_module import Parameters
 
 model = sys.argv[1]
 iteration = sys.argv[2]
 param_file = sys.argv[3]
+temperature = sys.argv[4]
 
 param = Parameters(param_file)
 
@@ -51,7 +54,8 @@ info = {'likelihood': {},
                              'max_tries':        1e+5,
                              'covmat':          'auto',
                              'oversample_power': 0,
-                             'proposal_scale':   2.1}},
+                             'proposal_scale':   2.1,
+                             'temperature':      temperature}},
         'theory': {'CosmoConnect': {'ignore_obsolete': True,
                                     'path':            os.path.join(CONNECT_PATH, 'mcmc_plugin/cobaya'),
                                     'python_path':     os.path.join(CONNECT_PATH, 'mcmc_plugin/cobaya'),

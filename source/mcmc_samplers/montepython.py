@@ -1,10 +1,12 @@
-import numpy as np
 import os
 import subprocess as sp
 import re
 import fileinput
 import shutil
-from source.mcmc_base import MCMC_base_class
+
+import numpy as np
+
+from ..mcmc_base import MCMC_base_class
 
 
 class montepython(MCMC_base_class):
@@ -28,7 +30,7 @@ class montepython(MCMC_base_class):
 
         output_dir = f'{self.CONNECT_PATH}/data/{self.param.jobname}/number_{iteration}'
 
-        sp.run(f"{self.CONNECT_PATH}/source/mcmc_samplers/run_scripts/run_montepython_iteration.sh {output_dir} {MP_param_file} {os.path.join(self.CONNECT_PATH,'mcmc_plugin/connect.conf')} {self.param.mcmc_tol} {self.mcmc_node}", shell=True, cwd=self.montepython_path)
+        sp.run(f"{self.CONNECT_PATH}/source/mcmc_samplers/run_scripts/run_montepython_iteration.sh {output_dir} {MP_param_file} {os.path.join(self.CONNECT_PATH,'mcmc_plugin/connect.conf')} {self.param.mcmc_tol} {self.mcmc_node} {self.temperature}", shell=True, cwd=self.montepython_path)
 
     
     def get_number_of_accepted_steps(self, iteration):

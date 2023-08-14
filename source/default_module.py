@@ -1,4 +1,5 @@
 from importlib.machinery import SourceFileLoader
+
 import numpy as np
 
 
@@ -43,6 +44,7 @@ class Parameters():
         self.keep_first_iteration = getattr(param, 'keep_first_iteration', False               )
         self.mcmc_tol             = getattr(param, 'mcmc_tol',             0.01                )
         self.iter_tol             = getattr(param, 'iter_tol',             0.01                )
+        self.temperature          = getattr(param, 'temperature',          5.0                 )
         self.sampling_likelihoods = getattr(param, 'sampling_likelihoods', ['Planck_lite']     )
         self.extra_cobaya_lkls    = getattr(param, 'extra_cobaya_lkls',    {}                  ) 
 

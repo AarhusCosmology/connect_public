@@ -1,6 +1,7 @@
-import numpy as np
 import os
 import subprocess as sp
+
+import numpy as np
 
 CONNECT_PATH  = os.path.split(os.path.realpath(os.path.dirname(__file__)))[0]
 
