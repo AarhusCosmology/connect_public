@@ -41,6 +41,8 @@ Both of these can be called through a job script if on a cluster using SLURM (se
 
 All trained models are stored in ```trained_models/```, and these can be loaded using native ```TensorFlow``` commands or the plugin module located in ```mcmc_plugin/python/build/lib.connect_disguised_as_classy/``` which functions like the ```classy``` wrapper for ```class```.
 
+Profile likelihoods can be computed with the keyword ```profile``` (see ```jobscripts/profile_likelihood.js```). The two scripts ```add_points.py``` and ```get_wrong_points.py``` are located in ```source/profile_likelihoods/```, and can be used as specified in the paper [arXiv:2308.06379](https://arxiv.org/abs/2308.06379).
+
 ## Support
 ```connect``` is a work in progress and will be updated continuously. Please feel free to write me at andreas@phys.au.dk regarding any problems you might encounter (or just to get started properly). 
 

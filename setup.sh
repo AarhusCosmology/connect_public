@@ -253,6 +253,7 @@ then
     conda activate $env_name
     export LD_LIBRARY_PATH=/lib64:$LD_LIBRARY_PATH
     pip install mpi4py
+    pip install pynput
     pip install tensorflow==2.10
     pip install tensorflow-probability==0.18.0
     if [ $Ans2_1 == $YES ]
