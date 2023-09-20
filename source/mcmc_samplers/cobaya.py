@@ -2,6 +2,11 @@ import numpy as np
 import os
 import subprocess as sp
 import pickle as pkl
+import sys
+from pathlib import Path
+FILE_PATH = os.path.realpath(os.path.dirname(__file__))
+CONNECT_PATH = Path(FILE_PATH).parents[1]
+sys.path.insert(1, CONNECT_PATH._str)
 from source.mcmc_base import MCMC_base_class
 
 

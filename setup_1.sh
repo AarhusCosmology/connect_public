@@ -2,7 +2,9 @@
 """
 This script installs all dependencies and sets up a conda environment.
 The user must have the loadable kernel modules 'intel' and 'mkl' installed
+
 Author: Andreas Nygaard (2022)
+
 """
 
 
@@ -23,6 +25,26 @@ echo -e "    - install and setup CLASS or use previous installation"
 echo -e "    - install Cobaya and CAMB (in environment)\n\n"
 echo -e "--------------------------------------------------------------\n\n"
 
+module load intel 2> /dev/null || failed_intel="true"
+module load mkl 2> /dev/null || failed_mkl="true"
+if ! [ -z $failed_intel ] || ! [ -z $failed_mkl ]
+then
+    if ! [ -z $failed_intel ]
+    then
+	echo "Kernel module 'intel' was not found."
+    fi
+    if ! [ -z $failed_mkl ]
+    then
+	echo "Kernel module 'mkl' was not found."
+    fi
+    echo -e "\nMake sure that the kernel modules 'intel' and 'mkl' can be"
+    echo -e "loaded with 'module load <name>'. These are needed to compile"
+    echo -e "the clik code." 
+    exit 0
+else
+    module unload intel
+    module unload mkl
+fi
 
 while [ -z $create_env ]
 do
@@ -42,8 +64,6 @@ while [ -z $setup_mp ]
 do
     echo "Do you want to use Monte Python with CONNECT? [yes, no]"
     read setup_mp
-    echo "Do you want to install MultiNest and PolyChord? [yes, no]"
-    read MN_PC
 done
 
 if [ $setup_mp == "yes" ]
@@ -99,17 +119,12 @@ fi
 if [ $setup_mp == "yes" ]
 then
     Ans2=$YES
-    if [ $MN_PC == "yes" ]
-    then
-	Ans2_1=$YES
-    else
-	Ans2_1=$NO
-    fi
     if ! [ -z $clik_path ]
     then
 	clik_mp="\n    Path to clik:\n    \033[0;34m${clik_path}\033[0m"
     else
-	clik_mp="\n    Downloading clik to \033[0;34mconnect/resources\033[0m"
+	clik_mp="\n    Downloading clik to \033[0;34mconnect/resources\\
+033[0m"
     fi
     if ! [ -z $montepython_path ]
     then
@@ -170,7 +185,6 @@ fi
 echo -e "You have selected the following:\n"
 echo -e "Create conda environment             :                   ${Ans1}"
 echo -e "Setup link to Monte Python           :                   ${Ans2}${path_mp}${clik_mp}"
-echo -e "Install MultiNest and PolyChord      :                   ${Ans2_1}"
 echo -e "Install CLASS                        :                   ${Ans3}${path_class}"
 echo -e "Install Cobaya                       :                   ${Ans4}${clik_cobaya}"
 echo -e "Install CAMB                         :                   ${Ans5}"
@@ -236,9 +250,6 @@ function install_clik {
 }
 
 
-module load gcc openmpi cmake
-conda init
-source ~/.bashrc
 
 
 if [ $Ans1 == $YES ]
@@ -247,15 +258,10 @@ then
     conda clean --index-cache
     # Remove ConnectEnvironment if it exists
     conda env remove -y --name $env_name
-    conda create -y --name $env_name python=3.10 cython matplotlib scipy numpy astropy pip numexpr pandas
-    conda activate $env_name
-    export LD_LIBRARY_PATH=/lib64:$LD_LIBRARY_PATH
-    pip install tensorflow mpi4py
-    if [ $Ans2_1 == $YES ]
-    then
-	pip install pymultinest
-	pip install git+https://github.com/PolyChord/PolyChordLite@master
-    fi
+    conda create -y --name $env_name
+    source activate $env_name
+    conda install -y cython matplotlib scipy numpy astropy openmpi mpi4py
+    conda install -y -c anaconda tensorflow-gpu
     echo "--> ..done!"
 fi
 
@@ -270,21 +276,6 @@ then
 	cd ..
 	montepython_path="${PWD}/resources/montepython_public"
 	echo "--> ..done!"
-	
-	if [ $Ans2_1 == $YES ]
-	then
-	    echo "--> Installing MultiNest..."
-	    cd resources
-	    git clone https://github.com/JohannesBuchner/MultiNest.git
-	    rm -rf MultiNest/build/*
-	    cd MultiNest/build
-	    CC=gcc CXX=g++ cmake -D CMAKE_Fortran_COMPILER=gfortran ..
-	    make
-	    cd ../../..
-	    echo "--> ...done!"
-	    # Remember to add MultiNest to LD_LIBRARY_PATH when using
-	    # export LD_LIBRARY_PATH=$PWD/MultiNest/lib/:$LD_LIBRARY_PATH
-	fi
     fi
     
     if [ -z $clik_path ]
@@ -294,12 +285,16 @@ then
     echo "--> Installing Planck likelihood code..."
     connect_path=$PWD
     cd $clik_path
+    module load mkl
+    module load intel
     if ! [ -z $env_name ]
     then
 	source activate $env_name
     fi
     ./waf configure --lapack_mkl=$MKLROOT --cfitsio_prefix=$PWD/cfitsio-3.47
     ./waf install
+    module unload mkl
+    module unload intel
     cd $connect_path
     echo "-->...done!"
 
@@ -318,7 +313,7 @@ then
     echo "--> Installing Cobaya..."
     if ! [ -z $env_name ]
     then
-        conda activate $env_name
+        source activate $env_name
     fi
     python -m pip install cobaya --upgrade
     echo "--> ...done!"
@@ -331,8 +326,12 @@ then
 	echo "--> Installing Planck likelihood code..."
 	connect_path=$PWD
 	cd $clik_path
+	module load mkl
+	module load intel
 	./waf configure --lapack_mkl=$MKLROOT --cfitsio_prefix=$PWD/cfitsio-3.47
 	./waf install
+	module unload mkl
+	module unload intel
 	cd $connect_path
 	echo "-->...done!"
     fi
@@ -352,7 +351,7 @@ if [ $Ans4 == $YES ]
 then
     if ! [ -z $env_name ]
     then
-        conda activate $env_name
+        source activate $env_name
     fi
     if ! [ -z $class_path ]
     then
@@ -381,9 +380,9 @@ then
     echo "--> Installing CAMB..."
     if ! [ -z $env_name ]
     then
-        conda activate $env_name
+        source activate $env_name
     fi
-    pip install camb --upgrade
+    python -m pip install camb --upgrade
     echo "--> ...done!"
 fi
 

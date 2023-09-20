@@ -11,7 +11,7 @@ class Parameters():
         self.parameters = param.parameters
 
         self.jobname              = getattr(param, 'jobname',              jobname             )
-        self.N                    = getattr(param, 'N',                    10000               )
+        self.N                = int(getattr(param, 'N',                    10000               ))
         self.train_ratio          = getattr(param, 'train_ratio',          0.9                 )
         self.val_ratio            = getattr(param, 'val_ratio',            0.01                )
         self.save_name            = getattr(param, 'save_name',            None                )

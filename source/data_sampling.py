@@ -137,7 +137,7 @@ class Sampling():
     def call_calc_models(self, sampling='lhc'):
         os.environ["export OMP_NUM_THREADS"] = str({self.N_cpus_per_task})
         os.environ["PMIX_MCA_gds"] = "hash"
-        sp.Popen(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split()).wait()
+        sp.Popen(f"mpirun -np {self.N_tasks - 1} python source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split(), cwd=self.CONNECT_PATH).wait()
         os.environ["export OMP_NUM_THREADS"] = "1"
 
     def train_neural_network(self, sampling='lhc', output_file=None):

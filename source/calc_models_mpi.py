@@ -39,7 +39,7 @@ get_slave = itertools.cycle(range(1,N_slaves+1))
 ## rank == 0 (master)
 if rank == 0:
     if sampling == 'iterative':
-        exec(f'from source.mcmc_samplers.{param.mcmc_sampler} import {param.mcmc_sampler}')
+        exec(f'from mcmc_samplers.{param.mcmc_sampler} import {param.mcmc_sampler}')
         _locals = {}
         exec(f'mcmc = {param.mcmc_sampler}(param, CONNECT_PATH)', locals(), _locals)
         mcmc = _locals['mcmc']

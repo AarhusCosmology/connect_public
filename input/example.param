@@ -82,7 +82,7 @@ sampling      = 'iterative'    # Sampling of training data can be done with the
                                # methods 'lhc' and 'iterative'. Some parameters
                                # are only usable wth the iterative method
 
-mcmc_sampler  = 'cobaya'       # mcmc sampler to use in iterations (cobaya or montepython)
+mcmc_sampler  = 'montepython'       # mcmc sampler to use in iterations (cobaya or montepython)
 
 initial_model = None           # Name of initial model to start the iterations
 

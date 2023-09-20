@@ -4,6 +4,11 @@ import subprocess as sp
 import re
 import fileinput
 import shutil
+import sys
+from pathlib import Path
+FILE_PATH = os.path.realpath(os.path.dirname(__file__))
+CONNECT_PATH = Path(FILE_PATH).parents[1]
+sys.path.insert(1, CONNECT_PATH.as_posix())
 from source.mcmc_base import MCMC_base_class
 
 
@@ -286,6 +291,10 @@ class montepython(MCMC_base_class):
                         k = mp_names.index(name)
                         params[k] = np.power(10.,params[k])
                     params *= model_param_scales
+                    for par in mp_names:
+                        if par == '100theta_s':
+                            n = mp_names.index(par)
+                            mp_names[n] = '100*theta_s'
                     data.append([params[j] for j in [mp_names.index(n) for n in paramnames]])
                     i += 1
 

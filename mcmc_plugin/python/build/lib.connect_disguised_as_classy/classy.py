@@ -6,6 +6,8 @@ import warnings
 import os
 import sys
 from pathlib import Path
+import pyaspic
+from PyAspic.examples.Slowroll_lnrhoreh import Slowroll
 
 FILE_PATH = os.path.realpath(os.path.dirname(__file__))
 CONNECT_PATH = Path(FILE_PATH).parents[3]
@@ -29,6 +31,8 @@ class Class(real_classy.Class):
         if not model_name == None:
             self.model_name = model_name
         self._model_name = model_name
+        self.aspic_params = {}
+
 
             
     @property
@@ -131,6 +135,46 @@ class Class(real_classy.Class):
         del _output_predict
 
 
+#    def set(self, *args, **kwargs):
+#        if len(args) == 1 and not bool(kwargs):
+#            input_parameters = dict(args[0])
+#        elif len(args) == 0 and bool(kwargs):
+#            input_parameters = kwargs
+#        else:
+#            raise ValueError('Bad call!')
+#        if bool(input_parameters):
+#            ip_keys = list(input_parameters.keys())
+#            for par in ip_keys:
+#                if par[-12:] == '_log10_prior':
+#                    log10_par = input_parameters.pop(par)
+#                    input_parameters[par[:-12]]=10**log10_par
+#            try:
+#                self.model_name = input_parameters.pop('connect_model')
+#            except:
+#                pass
+#            super(Class, self).set(input_parameters)
+#
+#
+#    def compute(self, level=None):
+#        try:
+#            params = []
+#            for par_name in self.param_names:
+#                if par_name in self.pars:
+#                    params.append(self.pars[par_name])
+#                elif 'A_s' in self.pars and par_name == 'ln10^{10}A_s':
+#                    params.append(np.log(self.pars['A_s']*1e+10))
+#                elif 'ln10^{10}A_s' in self.pars and par_name == 'A_s':
+#                    params.append(np.exp(self.pars['ln10^{10}A_s'])*1e-10)
+#                else:
+#                    try:
+#                        params.append(self.default[par_name])
+#                    except:
+#                        raise KeyError(f'The parameter {par_name} is not listed with a default value. You can add one in the load_model method in file: {os.path.join(CONNECT_PATH,__file__)}')
+#            v = tf.constant([params])
+#            self.output_predict = self.normalize_output(self.model(v).numpy()[0])
+#        except:
+#            raise SystemError('No model has been loaded - Set the attribute model_name to the name of a trained CONNECT model')
+
     def set(self, *args, **kwargs):
         if len(args) == 1 and not bool(kwargs):
             input_parameters = dict(args[0])
@@ -144,6 +188,17 @@ class Class(real_classy.Class):
                 if par[-12:] == '_log10_prior':
                     log10_par = input_parameters.pop(par)
                     input_parameters[par[:-12]]=10**log10_par
+#                if 'aspic_' in par:
+#                    if par == 'aspic_model':
+#                        self.aspic_model = input_parameters.pop(par)
+#                    elif par == 'aspic_lnRhoReh':
+#                        self.aspic_lnRhoReh = input_parameters.pop(par)
+#                    elif par == 'aspic_w':
+#                        self.aspic_w = input_parameters.pop(par)
+#                    else:
+#                        self.aspic_params.update({par:input_parameters.pop(par)})
+#                if par == 'A_s':
+#                    self.aspic_As = input_parameters[par]
             try:
                 self.model_name = input_parameters.pop('connect_model')
             except:
@@ -154,6 +209,7 @@ class Class(real_classy.Class):
     def compute(self, level=None):
         try:
             params = []
+#            aspic_computed = Slowroll(self.aspic_model, self.aspic_w, self.aspic_lnRhoReh, self.aspic_As, *list(self.aspic_params.values()))
             for par_name in self.param_names:
                 if par_name in self.pars:
                     params.append(self.pars[par_name])
@@ -161,26 +217,33 @@ class Class(real_classy.Class):
                     params.append(np.log(self.pars['A_s']*1e+10))
                 elif 'ln10^{10}A_s' in self.pars and par_name == 'A_s':
                     params.append(np.exp(self.pars['ln10^{10}A_s'])*1e-10)
+#                elif par_name in ['r', 'alpha_s', 'n_s']:
+#                    params.append(eval('aspic_computed.'+par_name))
                 else:
                     try:
                         params.append(self.default[par_name])
                     except:
                         raise KeyError(f'The parameter {par_name} is not listed with a default value. You can add one in the load_model method in file: {os.path.join(CONNECT_PATH,__file__)}')
             v = tf.constant([params])
-        
             self.output_predict = self.normalize_output(self.model(v).numpy()[0])
         except:
             raise SystemError('No model has been loaded - Set the attribute model_name to the name of a trained CONNECT model')
 
 
-    def lensed_cl(self, lmax=2500):
+    def lensed_cl(self, lmax=-1):
         if not hasattr(self, 'output_predict'):
             self.compute()
 
+#        if lmax == -1:
+#            lmax = 2500
+#        if 'l_max_scalars' in self.pars.keys():
+#            lmax = self.pars['l_max_scalars']
+
         if lmax == -1:
-            lmax = 2500
-        if 'l_max_scalars' in self.pars.keys():
-            lmax = self.pars['l_max_scalars']
+            if 'l_max_scalars' in self.pars.keys():
+                lmax = self.pars['l_max_scalars']
+            else:
+                lmax = 2500
 
         spectra = ['tt','ee','bb','te','pp','tp']
         out_dict = {}
@@ -200,7 +263,7 @@ class Class(real_classy.Class):
             out_dict[output] = np.insert(Cl[1:]*2*np.pi/(ell[1:]*(ell[1:]+1)), 0, 0.0) # Convert back to Cl form
 
         out_dict['ell'] = ell
-        null_out = np.ones(len(ell), dtype=np.float32) * 1e-15
+        null_out = np.ones(len(ell), dtype=np.float64) * 1e-15
         for spec in np.setdiff1d(spectra, self.output_Cl):
             out_dict[spec] = null_out
 
