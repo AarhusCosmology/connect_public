@@ -1,11 +1,12 @@
-import tensorflow as tf
-import numpy as np
-import pickle as pkl
-from scipy.interpolate import CubicSpline
-import warnings
 import os
 import sys
+import pickle as pkl
+import warnings
 from pathlib import Path
+
+from scipy.interpolate import CubicSpline
+import tensorflow as tf
+import numpy as np
 
 FILE_PATH = os.path.realpath(os.path.dirname(__file__))
 CONNECT_PATH = Path(FILE_PATH).parents[3]
@@ -178,9 +179,10 @@ class Class(real_classy.Class):
             self.compute()
 
         if lmax == -1:
-            lmax = 2500
-        if 'l_max_scalars' in self.pars.keys():
-            lmax = self.pars['l_max_scalars']
+            try:
+                lmax = self.pars['l_max_scalars']
+            except:
+                lmax = 2508
 
         spectra = ['tt','ee','bb','te','pp','tp']
         out_dict = {}

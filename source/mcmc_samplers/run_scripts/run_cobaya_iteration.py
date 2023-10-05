@@ -8,12 +8,12 @@ from cobaya.log import LoggedError
 from mpi4py import MPI
 import numpy as np
 
-from ...default_module import Parameters
+from source.default_module import Parameters
 
 model = sys.argv[1]
 iteration = sys.argv[2]
 param_file = sys.argv[3]
-temperature = sys.argv[4]
+temperature = np.float64(sys.argv[4])
 
 param = Parameters(param_file)
 
@@ -36,14 +36,11 @@ sys.stderr = sys.stdout
 
 
 lkls = {'Planck_highl_TTTEEE_lite': {'name': 'planck_2018_highl_plik.TTTEEE_lite',
-                                     'clik': os.path.join(path_clik, 'hi_l/plik_lite'),
-                                     'path': os.path.join(path['cosmo'], 'cobaya/custom_likelihoods')},
-        'Planck_lowl_TT':           {'name': 'planck_2018_lowl.TT',
-                                     'clik': os.path.join(path_clik, 'low_l/commander'),
-                                     'path': os.path.join(path['cosmo'], 'cobaya/custom_likelihoods')},
-        'Planck_lowl_EE':           {'name': 'planck_2018_lowl.EE',
-                                     'clik': os.path.join(path_clik, 'low_l/commander'),
-                                     'path': os.path.join(path['cosmo'], 'cobaya/custom_likelihoods')}}
+                                     'clik': os.path.join(path_clik, 'hi_l/plik_lite')},
+        'Planck_lowl_TT':           {'name': 'planck_2018_lowl.TT_clik',
+                                     'clik': os.path.join(path_clik, 'low_l/commander')},
+        'Planck_lowl_EE':           {'name': 'planck_2018_lowl.EE_clik',
+                                     'clik': os.path.join(path_clik, 'low_l/simall')}}
 
 
 
@@ -70,10 +67,15 @@ for lkl in param.sampling_likelihoods:
         for name in os.listdir(lkls[lkl]['clik']):
             if 'TTTEEE' in lkl and name.endswith('TTTEEE.clik'):
                 clik_file = os.path.join(lkls[lkl]['clik'], name)
-            elif name.endswith('.clik'):
+                break
+            elif 'EE' in lkl and name.endswith('.clik') and 'BB' not in name:
                 clik_file = os.path.join(lkls[lkl]['clik'], name)
-        info['likelihood'][lkls[lkl]['name']] = {'clik_file':   clik_file,
-                                                 'python_path': lkls[lkl]['path']}
+                break
+            elif 'TT' in lkl and name.endswith('.clik'):
+                clik_file = os.path.join(lkls[lkl]['clik'], name)
+                break
+        info['likelihood'][lkls[lkl]['name']] = {'clik_file':   clik_file}
+
     else:
         raise NotImplementedError(f"For now, only the following three likelihoods are available during training:\n{' '*4}Planck_highl_TTTEEE_lit, Planck_lowl_TT, Planck_lowl_EE\nYou can manually add extra likelihoods as a nested dictionary using Cobaya syntax in the parameter file, e.g.\n{' '*4}"+"extra_cobaya_lkls = {'Likelihood_name': {'path': path/to/likelihood,\n"+f"{' '*52}'options': other_options,\n{' '*52}"+"...},\n"+f"{' '*44}"+"...}")
 
@@ -102,7 +104,7 @@ for par,interval in param.parameters.items():
     if par in param.sigma_guesses:
         sig = param.sigma_guesses[par]
     else:
-        sig = abs(((interval[0] + interval[1])/2)/100)
+        sig = abs((interval[1] - interval[0])/10)
     if par in param.log_priors:
         if xmin != -1e+32:
             xmin = np.log10(xmin)
@@ -169,7 +171,6 @@ for par in param.output_derived:
     else:
         info['params'][par] = {}
         info['params'][par]['latex'] = par
-
 
 
 

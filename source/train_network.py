@@ -20,15 +20,15 @@ class Training():
             try:
                 i = max([int(f.split('number_')[-1]) for f in os.listdir(path) if f.startswith('number')])
                 self.load_path = os.path.join(path, f'number_{i}')
-                self.param.N = sum(1 for line in open(os.path.join(self.load_path, 'model_params.txt'))) - 1
+                self.N = sum(1 for line in open(os.path.join(self.load_path, 'model_params.txt'))) - 1
             except:
                 self.load_path = os.path.join(path, f'N-{self.param.N}')
-                self.param.N = sum(1 for line in open(os.path.join(self.load_path, 'model_params.txt'))) - 1
+                self.N = sum(1 for line in open(os.path.join(self.load_path, 'model_params.txt'))) - 1
         else:
             self.load_path = os.path.join(path, f'N-{self.param.N}')
-            self.param.N = sum(1 for line in open(os.path.join(self.load_path, 'model_params.txt'))) - 1
+            self.N = sum(1 for line in open(os.path.join(self.load_path, 'model_params.txt'))) - 1
 
-        self.N_train = int(np.floor(self.param.N*self.param.train_ratio))
+        self.N_train = int(np.floor(self.N*self.param.train_ratio))
         input_dim = len(self.param.parameters.keys())
 
         model_params          = []
@@ -339,9 +339,9 @@ class Training():
         dataset = []
         del dataset
         self.val_dataset = self.train_dataset.take(int(
-            self.param.val_ratio*self.param.N)).batch(self.param.batchsize)
+            self.param.val_ratio*self.N)).batch(self.param.batchsize)
         self.train_dataset = self.train_dataset.skip(int(
-            self.param.val_ratio*self.param.N)).batch(self.param.batchsize)
+            self.param.val_ratio*self.N)).batch(self.param.batchsize)
 
 
         ### Define strategy for training on multiple GPUs ###
@@ -410,8 +410,7 @@ class Training():
                                      output_info = out_act)
             
             self.model.compile(optimizer=adam,
-                               loss=self.loss_fun,
-                               metrics=['accuracy'])
+                               loss=self.loss_fun)
 
         self.history = self.model.fit(self.train_dataset,
                                       epochs=self.param.epochs,
@@ -422,8 +421,8 @@ class Training():
             sys.stdout.close()
             sys.stdout = stdout_backup
             
-        test_loss, test_acc = self.model.evaluate(self.test_dataset, verbose=2)
-        print('\nTest accuracy:', test_acc)
+        test_loss = self.model.evaluate(self.test_dataset, verbose=2)
+        print('\nTest loss:', test_loss)
 
     def save_model(self):
         if not getattr(self, 'model', None):
@@ -435,7 +434,7 @@ class Training():
                                           self.param.save_name)
         else:
             save_name  = f'{self.param.jobname}'
-            save_name += f'_N{self.param.N}'
+            save_name += f'_N{self.N}'
             save_name += f'_bs{self.param.batchsize}'
             save_name += f'_e{self.param.epochs}'
             self.save_path = os.path.join(self.CONNECT_PATH,
@@ -466,11 +465,8 @@ class Training():
         if not getattr(self, 'save_path', None):
             errmsg = "the class has no attribute 'save_path'. You should run the 'save_model' method before using the 'save_history' method"
             raise AttributeError(errmsg)
-        acc  = self.history.history['val_accuracy']
-        loss = self.history.history['val_loss']
 
-        with open(os.path.join(self.save_path, 'val_accuracy.pkl'),'wb') as f:
-            pickle.dump(acc, f)
+        loss = self.history.history['val_loss']
 
         with open(os.path.join(self.save_path, 'val_loss.pkl'),'wb') as f:
             pickle.dump(loss, f)

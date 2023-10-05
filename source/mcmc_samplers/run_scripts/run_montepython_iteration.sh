@@ -4,7 +4,7 @@ output_file="${1}/montepython.log"
 MPARGS=" -p ${2}"
 MPARGS+=" -o $output_dir"
 MPARGS+=" -c covmat/base2018TTTEEE_lite.covmat"
-MPARGS+=" -N 5000000000"
+MPARGS+=" -N 1000000"
 MPARGS+=" --conf ${3}"
 MPARGS+=" -j fast -f 2.1 --silent"
 MPARGS+=" --update 1000"
@@ -47,7 +47,10 @@ do
         do
             GR=$(sed -n ${l}p $output_file | tr "\t" "\n" | head -n 1)
             GR=${GR/ -> R-1 is /}
-	    bool=$(echo "$GR > $mcmc_tol" | bc -l 2> /dev/null)
+            bool1=$(echo "$GR > $mcmc_tol" | bc -l 2> /dev/null)
+            bool2=$(echo "$GR==0" | bc -l 2> /dev/null)
+            a=$(echo "sqrt($bool1 + $bool2)" | bc -l)
+            bool=${a%.*}
 	    if [ -z $bool ]
 	    then
 		bool="0"
