@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess as sp
 import re
 import fileinput
@@ -18,6 +19,7 @@ class montepython(MCMC_base_class):
             for line in f:
                 exec(line)
         self.montepython_path = path['montepython']
+
 
     def run_mcmc_sampling(self, model, iteration):
         MP_param_file = self.create_montepython_param(iteration)
@@ -119,7 +121,7 @@ class montepython(MCMC_base_class):
                             if par in self.param.sigma_guesses:
                                 sig = self.param.sigma_guesses[par]
                             else:
-                                sig = abs(((interval[0] + interval[1])/2)/100)
+                                sig = abs((interval[1] - interval[0])/50)
                             if par == 'omega_b' or par == 'Omega_b':
                                 scale = 0.01
                                 guess *= 1/scale
@@ -202,6 +204,13 @@ class montepython(MCMC_base_class):
             raise NotImplementedError(err_msg)
         else:
             print(f'Your version of MontePython is {version}', flush=True)
+        if np.float64('.'.join(version.split('.')[:2])) > 3.5:
+            libs = ''.join(os.listdir(os.path.join(self.CONNECT_PATH, 'mcmc_plugin/python/build')))
+            if libs.find(sys.version) == -1:
+                os.mkdir(os.path.join(self.CONNECT_PATH, f'mcmc_plugin/python/build/lib.{sys.version}'))
+                os.link(os.path.join(self.CONNECT_PATH, 'mcmc_plugin/python/build/lib.connect_disguised_as_classy/classy.py'),
+                        os.path.join(self.CONNECT_PATH, f'mcmc_plugin/python/build/lib.{sys.version}/classy.py'))
+
 
 
     def save_accepted_points(self,
@@ -249,6 +258,7 @@ class montepython(MCMC_base_class):
                               ):
 
         paramnames = self.param.parameters.keys()
+        paramnames = ['100theta_s' if s=='100*theta_s' else s for s in paramnames]
         model_param_scales = []
         with open(f'data/{self.param.jobname}/number_{iteration}/log.param','r') as f:
             lines = list(f)

@@ -13,7 +13,7 @@ NO='\033[0;31mno\033[0m'
 YES='\033[0;32myes\033[0m'
 
 echo -e "--------------------------------------------------------------\n\n"
-cat source/logo.txt
+cat source/logo_colour.txt
 echo -e "\n--------------------------------------------------------------\n"
 
 echo -e "Running setup script for connect\n"
@@ -249,15 +249,15 @@ then
     conda clean --index-cache
     # Remove ConnectEnvironment if it exists
     conda env remove -y --name $env_name
-    conda create -y --name $env_name python=3.10 cython matplotlib scipy numpy astropy pip numexpr pandas
+    conda create -y --name $env_name python=3.10 cython=3.0 matplotlib=3.7 scipy=1.11 numpy=1.26 astropy=5.1 pip=23.2 numexpr=2.8 pandas=2.0
     conda activate $env_name
     export LD_LIBRARY_PATH=/lib64:$LD_LIBRARY_PATH
-    pip install mpi4py
+    pip install mpi4py==3.1.4
     pip install tensorflow==2.10
     pip install tensorflow-probability==0.18.0
     if [ $Ans2_1 == $YES ]
     then
-	pip install pymultinest
+	pip install pymultinest==2.12
 	pip install git+https://github.com/PolyChord/PolyChordLite@master
     fi
     echo "--> ..done!"
@@ -270,7 +270,7 @@ then
 	echo "--> Cloning Monte Python into resources..."
 	mkdir -p resources
 	cd resources
-	git clone https://github.com/brinckmann/montepython_public.git
+	git clone -b 3.5 https://github.com/brinckmann/montepython_public.git
 	cd ..
 	montepython_path="${PWD}/resources/montepython_public"
 	echo "--> ..done!"
@@ -373,6 +373,7 @@ then
 	git clone https://github.com/lesgourg/class_public.git
 	cd class_public
 	echo "--> Building classy wrapper..."
+	sed -i 's/cpdef/cdef/g' python/classy.pyx
 	make clean
 	make
 	cd ../..

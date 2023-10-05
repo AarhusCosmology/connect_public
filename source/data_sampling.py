@@ -47,14 +47,26 @@ class Sampling():
         mcmc.check_version()
         i_converged = 10000
         if self.param.resume_iterations:
-            i = max([int(f.split('number_')[-1]) for f in os.listdir(self.data_path) if f.startswith('number')])
-            print('i =',i)
-            os.system(f"rm -rf {self.data_path}/number_{i}")
-            print('Resuming iterative sampling', flush=True)
-            print(f'Retraining neural network from iteration {i-1}', flush=True)
+            try:
+                i = max([int(f.split('number_')[-1]) for f in os.listdir(self.data_path) if f.startswith('number')])
+            except:
+                raise NotImplementedError('You do not have any computed iterations to resume from. Please run again without resume_iterations=True')
+            data_is_computed = os.path.isfile(os.path.join(self.data_path, f'number_{i}', 'training.log'))
+            if data_is_computed:
+                print('Resuming iterative sampling', flush=True)
+                print(f'Retraining neural network from iteration {i}', flush=True)
+            else:
+                i -= 1
+                if i==0:
+                    raise NotImplementedError('You do not have any computed iterations to resume from. Please run again without resume_iterations=True')
+                else:
+                    os.system(f"rm -rf {self.data_path}/number_{i+1}")
+                    print('Resuming iterative sampling', flush=True)
+                    print(f'Retraining neural network from iteration {i}', flush=True)
+
             model = self.train_neural_network(sampling='iterative',
                                               output_file=os.path.join(self.data_path,
-                                                                       f'number_{i-1}/training.log'))
+                                                                       f'number_{i}/training.log'))
             if not os.path.isdir(os.path.join(self.data_path, 'compare_iterations')):
                 os.system(f"mkdir {self.data_path}/compare_iterations")
                 mcmc.Gelman_Rubin_log_ini()
@@ -63,6 +75,7 @@ class Sampling():
                     if "will be the last with same temperature since convergence in" in line:
                         i_converged = int(line.split(' ')[1])
                         break
+            i += 1
         else:
             self.copy_param_file()
             if not os.path.isdir(self.data_path):

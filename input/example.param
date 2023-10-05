@@ -71,7 +71,7 @@ extra_input    = {'k_pivot': 0.05,	    # Extra input to CLASS
 
 #sigma_guesses   = {'parameter': value}  # Guesses for sigma for parameters 
 
-#prior_ranges    = parameters            # Prior ranges for mcmc sampling. A dictionary
+prior_ranges     = parameters            # Prior ranges for mcmc sampling. A dictionary
                                          # in the same form as parameters
 
 #log_priors      = []                    # List of parameter names to be sampled
@@ -82,13 +82,13 @@ sampling      = 'iterative'    # Sampling of training data can be done with the
                                # methods 'lhc' and 'iterative'. Some parameters
                                # are only usable wth the iterative method
 
-mcmc_sampler  = 'cobaya'       # mcmc sampler to use in iterations (cobaya or montepython)
+mcmc_sampler  = 'montepython'  # mcmc sampler to use in iterations (cobaya or montepython)
 
 initial_model = None           # Name of initial model to start the iterations
 
-mcmc_tol      = 0.01           # Tolerance of R-1 values for individual mcmc runs
+mcmc_tol      = 0.05           # Tolerance of R-1 values for individual mcmc runs
 
-iter_tol      = 0.01           # Tolerance of R-1 values for subsequent iterations
+iter_tol      = 0.1            # Tolerance of R-1 values for subsequent iterations
 
 N_max_points  = 2e+4           # The maximum number of points to take from each iteration
 

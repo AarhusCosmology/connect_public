@@ -23,7 +23,7 @@ class KeepBestEpoch(tf.keras.callbacks.Callback):
         self.best_loss = None
         self.best_epoch = 1
     def on_epoch_end(self, epoch, logs=None):
-        loss = logs['val_loss']
+        loss = logs['loss']
         if not np.isfinite(loss):
             self.model.stop_training = True
         elif self.best_loss == None or self.best_loss > loss:
