@@ -309,7 +309,7 @@ then
 
     echo "--> Linking Monte Python..."
     cp mcmc_plugin/connect.conf.template mcmc_plugin/connect.conf
-    echo "path['cosmo'] = '${PWD}/mp_plugin'" > mcmc_plugin/connect.conf
+    echo "path['cosmo'] = '${PWD}/mcmc_plugin'" > mcmc_plugin/connect.conf
     echo "path['clik'] = '${clik_path}'" >> mcmc_plugin/connect.conf
     echo "path['montepython'] = '${montepython_path}'" >> mcmc_plugin/connect.conf
     
