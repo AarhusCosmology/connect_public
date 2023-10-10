@@ -1,6 +1,6 @@
 <div align="center">
 
-![connect_logo](https://user-images.githubusercontent.com/61239752/194646729-59ece7fb-f021-4467-ac2f-682b41252bfa.svg)
+![connect_logo](https://github.com/AarhusCosmology/connect_public/assets/61239752/bec6bf3e-5c44-4d4c-bf5b-a4c1e32f6391)
 
 **CO**smological **N**eural **N**etwork **E**mulator of **C**LASS using **T**ensorFlow
 
@@ -9,27 +9,79 @@
 ![](https://img.shields.io/badge/Author-Andreas%20Nygaard-181717?style=plastic)
 
 [Overview](#overview) •
-[Installation and setup](#installation-and-setup) •
-[Usage](#usage) •
-[Support](#support) • 
-[Citation](#citation)
+[Installation and setup](#1-installation-and-setup) •
+[Usage](#2-usage) •
+[Example of workflow](#3-example-of-workflow---λcdm) • 
+[Support](#4-support) • 
+[Citation](#5-citation)
 
 </div>
 
 ## Overview
-```connect``` is a framework for emulating cosmological parameters using neural networks. This includes both sampling of training data and training of the actual networks using the [TensorFlow](https://www.tensorflow.org) library from Google. ```connect```is designed to aid in cosmological parameter inference by immensely speeding up the process. This is achieved by substituting the cosmological Einstein-Boltzmann solver codes, needed for every evaluation of the likelihood, with a neural network with a $10^2$ to $10^3$ times faster evaluation time. 
+CONNECT is a framework for emulating cosmological parameters using neural networks. This includes both sampling of training data and training of the actual networks using the [TensorFlow](https://www.tensorflow.org) library from Google. CONNECT is designed to aid in cosmological parameter inference by immensely speeding up the process. This is achieved by substituting the cosmological Einstein-Boltzmann solver codes, needed for every evaluation of the likelihood, with a neural network with a $10^2$ to $10^3$ times faster evaluation time. 
 
-## Installation and setup
-In order to use ```connect```, simply clone the repository into a folder on your local computer or a cluster
+- [1. Installation and setup](#1-installation-and-setup)
+  * [1.1 Manual setup](#11-manual-setup)
+- [2. Usage](#2-usage)
+  * [2.1 Creating a neural network](#21-creating-a-neural-network)
+  * [2.2 Using a trained neural network for MCMC](#22-using-a-trained-neural-network-for-mcmc)
+    + [2.2.1 Monte Python](#221-monte-python)
+    + [2.2.2 Cobaya](#222-cobaya)
+    + [2.2.3 Using a trained neural network on its own](#223-using-a-trained-neural-network-on-its-own)
+- [3. Example of workflow - ΛCDM](#3-example-of-workflow---λcdm)
+  * [3.1 Useful commands for monitoring the iterative sampling](#31-useful-commands-for-monitoring-the-iterative-sampling)
+- [4. Support](#4-support)
+- [5. Citation](#5-citation)
+
+## 1. Installation and setup
+In order to use CONNECT, simply clone the repository into a folder on your local computer or a cluster
 ```
 git clone https://github.com/AarhusCosmology/connect_public.git
 ```
-The code depends on [Class](https://github.com/lesgourg/class_public) and [Monte Python](https://github.com/brinckmann/montepython_public) (if iterative sampling is to be used - see [arXiv:2205.15726](https://arxiv.org/abs/2205.15726)), so one needs functioning installations of these. One also requires the Planck 2018 likelihood installed. The path (absolute) to ```Monte Python``` should be given as an input in the parameter file, if one uses iterative sampling. Alternatively the path can be set as default in ```source/default_module.py```. The paths to ```connect_public/mcmc_plugin``` and the Planck likelihood should be set in ```mp_plugin/connect.conf``` in order for ```Monte Python``` to use ```connect```instead of ```class```. 
+The setup and installations are taken care of by the ```setup.sh``` script which ensures that compatible versions of all dependencies are installed in a conda environment. Simply run the following from within the repository:
+```
+./setup.sh
+```
+You will be presented with some yes/no questions and some requests for paths of other codes. If you do not have any previous codes you wish to link, you can have CONNECT install all of the dependencies by answering yes to all questions and leaving requests for paths blank (follow the instructions on the screen). This creates a conda environment called ```ConnectEnvironment```, where all dependencies are installed. This requires ```anaconda```, ```gcc```, ```openmpi``` and ```cmake``` and is tested for the following versions: 
+```
+anaconda = 4.10.1
+gcc      = 12.2.0
+openmpi  = 4.0.3
+cmake    = 3.24.3
+```
+Other versions may work just as well but have not been tested. If you find that specific versions do not work, please inform me on the email address further down. 
 
-The code is dependent on ```TensorFlow >= v2.0``` and ```mpi4py```, so these should be installed (pip or conda) within the environment to use with the code. If using an environment when running ```connect```, remember to build ```class``` within this environment.
+Running the ```setup.sh``` script on a cluster with the [The Environment Modules package](https://modules.readthedocs.io) automatically loads ```gcc```, ```openmpi``` and ```cmake```, but ```anaconda``` needs to be loaded before running the script. If you are running locally or on a cluster without [The Environment Modules package](https://modules.readthedocs.io), all of the above need to be available from the start. You can check this with the following set of commands:
+```
+conda --version
+gcc --version
+mpirun --version
+cmake --version
+```
 
-## Usage
-With ```connect``` one can either create training data or train a model using specified training data. The syntax for creating training data is
+### 1.1 Manual setup
+The code depends on [Class](https://github.com/lesgourg/class_public) and either [Monte Python](https://github.com/brinckmann/montepython_public) or [Cobaya](https://github.com/CobayaSampler/cobaya) (if iterative sampling is to be used - see [arXiv:2205.15726](https://arxiv.org/abs/2205.15726)), so one needs functioning installations of these. One also requires the Planck 2018 likelihood installed. The paths to ```connect_public/mcmc_plugin```, Monte Python, and the Planck likelihood should be set in ```mcmc_plugin/connect.conf``` in order for ```Monte Python``` to use a trained CONNECT model instead of Class. ```mcmc_plugin/connect.conf``` should look something like
+```
+path['cosmo'] = '<path to connect_public>/mcmc_plugin'
+path['clik'] = '<path to planck2018>/code/plc_3.0/plc-3.01/'
+path['montepython'] = '<path to montepython_public>'
+```
+
+The code is dependent on ```TensorFlow >= v2.0``` and ```mpi4py```, so these should be installed (pip or conda) within the environment to use with the code. If using an environment when running CONNECT, remember to build Class within this environment. Additional dependencies include
+```
+cython
+matplotlib
+scipy
+numpy
+```
+along with all dependencies for Monte Python, Cobaya, Class, and the Planck 2018 likelihood.
+
+
+## 2. Usage
+CONNECT is currently meant for creating neural networks to be used with other codes, such as MCMC samplers. Some quick overviews of how to create a neural network and how to use it afterwards are presented below.
+
+### 2.1 Creating a neural network
+With CONNECT, one can either create training data or train a neural network model using specified training data. The syntax for creating training data is
 ```
 python connect.py create input/<parameter_file>
 ```
@@ -37,14 +89,232 @@ and the parameter file specifies all details (see ```input/example.param```). Th
 ```
 python connect.py train input/<parameter_file>
 ```
+This is typically used if one wants to retrain on the same data with different training parameters.
 Both of these can be called through a job script if on a cluster using SLURM (see the example job script ```jobscripts/example.js```).
 
-All trained models are stored in ```trained_models/```, and these can be loaded using native ```TensorFlow``` commands or the plugin module located in ```mcmc_plugin/python/build/lib.connect_disguised_as_classy/``` which functions like the ```classy``` wrapper for ```class```.
 
-## Support
-```connect``` is a work in progress and will be updated continuously. Please feel free to write me at andreas@phys.au.dk regarding any problems you might encounter (or just to get started properly). 
+There are three different kinds of parameters to give in the parameter files (all with default values), *training parameters*, *sampling parameters*, and *saving parameters*. 
+
+The training parameters include the architecture of the network as well as normalisation method, loss function, activation function, etc. The list includes the following:
+```
+train_ratio          = 0.9                # how much data to use for training - the rest is stored as test data
+val_ratio            = 0.01               # how much of the training data to use for validation during training
+epochs               = 200                # number of epochs (cycles) to train for
+batchsize            = 64                 # data is split into batches of this size during training
+N_hidden_layers      = 4                  # number of hidden layers
+N_nodes              = 512                # number of nodes (neurons) in each hidden layer
+loss_function        = 'mse'              # loss function used during training for optimisation
+activation_function  = 'relu'             # activation function used in all hidden layers 
+normalization_method = 'standardization'  # normalisation method to use on output data
+```
+
+There are two different ways of gathering training data, Latin hypercube sampling and the iterative approach described in [arXiv:2205.15726]. This is chosen in the parameter file as either ```sampling = 'lhc'```or ```sampling = 'iterative'```. Some additional parameters are available for the iterative sampling (see ```input/example.param```). The sampling parameters include the following:
+```
+parameters           = {'H0'        : [64,   76  ],   # parameters to sample in given as a dictionary with **min** and **max** values in a list
+                       'omega_cdm'  : [0.10, 0.14]}
+extra_input          = {'omega_b': 0.0223}            # extra input for CLASS given as normal CLASS input
+output_Cl            = ['tt', 'te', 'ee']             # which Cl spectra to emulate
+output_derived       = ['YHe', 'sigma_8']             # which derived parameters to emulate
+N                    = 1e+4                           # how many data points to sample using a Latin hypercube (initial step for iterative sampling)
+sampling             = 'iterative'                    # sampling method - 'lhc' or 'iterative'
+
+### Additional parameters for iterative sampling ###
+N_max_points         = 2e+4                           # maximum number of points to sample from each iteration
+mcmc_sampler         = 'montepython'                  # MCMC code to use in each iteration - 'montepython' or 'cobaya'
+initial_model        = None                           # initial model to start from instead of using a Latin hypercube
+mcmc_tol             = 0.01                           # convergence criterion for R-1 values in MCMC runs in each iteration
+iter_tol             = 0.1                            # convergence criterion for R-1 values between data from two consecutive iterations
+temperature          = 5.0                            # sampling temperature during MCMC - if a list is provided, additional iterations with annealing will be done
+sampling_likelihoods = ['Planck_lite']                # likelihoods to use for sampling in the iterations
+prior_ranges         = {'H0' : [50, 100]}             # prior ranges to be used by the MCMC sampler (optional)
+bestfit_guesses      = {'H0' : 67.7}                  # bestfit guesses to be used for proposal distribution by the MCMC sampler (optional)
+sigma_guesses        = {'H0' : 0.5}                   # sigma guesses to be used for proposal distribution by the MCMC sampler (optional)
+log_priors           = ['omega_cdm']                  # which parameters to sample with logarithmic priors (optional)
+keep_first_iteration = False                          # whether or not to keep data from the first iteration - usually bad
+extra_cobaya_lkls    = {}                             # additional likelihoods to sample with when using cobaya as MCMC samler
+resume_iterations    = False                          # whether or not to resume a previous run if somthing failed or additional iterations are needed
+```
+
+The saving parameters are used for naming the outputted neural network models along with the folder for training data. The parameters include the following:
+```
+jobname         = 'example'            # identifier for the output and created training data stored under data/<jobname>
+save_name       = 'example_network'    # name of trained models
+overwrite_model = False                # whether or not to overwrite names of trained models or to append a suffix
+```
+
+
+### 2.2 Using a trained neural network for MCMC
+
+All trained models are stored in ```trained_models/```, and these can be loaded using native ```TensorFlow``` commands or the plugin module located in ```mcmc_plugin/python/build/lib.connect_disguised_as_classy/``` which functions like the ```classy``` wrapper for Class. To use the plugin instead of Class, one needs to add the path to ```sys.path``` in order for this module to be loaded when importing ```classy```. One needs to specify the name of the model with ```cosmo.set()``` in the same way as any other Class parameter is set. This can be done in the following way:
+```
+import sys
+path_to_connect_classy = '<path to connect_public>/mcmc_plugin/python/build/lib.connect_disguised_as_classy'
+sys.path.insert(1, path_to_connect_classy)
+from classy import Class
+cosmo = Class()
+cosmo.set({'connect_model': <name of neural network model>,
+           'H0'           : 67.7,
+           ...
+          })
+cosmo.compute()
+cls = cosmo.lensed_cl()
+```
+
+This wrapper is used by both Monte Python and Cobaya when using the neural network for MCMC runs. 
+#### 2.2.1 Monte Python
+When running an MCMC with Monte Python, one has to set the configuration file to ```<path to connect_public>/mcmc_plugin/connect.conf``` using the Monte Python flag ```--conf```. The important thing here is that the configuration file points to the CONNECT wrapper instead of Class for the cosmological module. It should look something like this
+```
+path['cosmo'] = '<path to connect_public>/mcmc_plugin'
+path['clik'] = '<path to planck2018>/code/plc_3.0/plc-3.01/'
+```
+Additionally, one has to specify the CONNECT neural network model in the Monte Python parameter file as an extra cosmological argument:
+```
+data.cosmo_arguments['connect_model'] = '<name of connect model>'
+```
+If the model is located under ```trained_models``` the name is sufficient, but otherwise, the absolute path should be put instead.
+Now one can just start Monte Python as usual. Use only a single CPU core per chain, since the evaluation of the network is not paralleliasable.
+
+##### \# Bug in Monte Python >= 3.6
+There is a [bug](https://github.com/brinckmann/montepython_public/issues/333) introduced in the newest version of Monte Python which ignores the path to the cosmological module set in the ```.conf``` file. The easiest fix is to switch to the ```3.5``` branch using ```git checkout 3.5``` from within the ```montepython_public``` repository. Another fix is to run the following piece of bash code from your ```connect_public``` repository:
+```
+mkdir "mcmc_plugin/python/build/lib.$(python -c 'import sys; print(sys.version)')"
+ln mcmc_plugin/python/build/lib.connect_disguised_as_classy/classy.py "mcmc_plugin/python/build/lib.$(python -c 'import sys; print(sys.version)')/classy.py"
+```
+This creates a hard link to the wrapper with a name that is accepted by the Monte Python bug.
+
+#### 2.2.2 Cobaya
+In Cobaya one must specify the CONNECT wrapper as the theory code in the input dictionary/yaml file. It should be specified in the following way:
+```
+info = {'likelihood': {...},
+        'params': {...},
+        'sampler': {'mcmc': {...}},
+        'theory': {'CosmoConnect': {'ignore_obsolete': True,
+                                    'path':            '<path to connect_public>/mcmc_plugin/cobaya',
+                                    'python_path':     '<path to connect_public>mcmc_plugin/cobaya',
+                                    'extra_args':      {'connect_model': <name of connect model>}
+                                   }}}
+```
+Again, if the model is located under ```trained_models``` the name is sufficient, but otherwise, the absolute path should be put instead.
+Use only a single CPU core for each chain here as well
+
+#### 2.2.3 Using a trained neural network on its own
+If one is loading a model without the wrapper, it is important also to load the info dictionary stored in the pickled file ```<path to neural network>/output_info.pkl```. This dictionary contains information on the parameter names, the normalisation, the output dimensions, etc. The following code snippet loads a model and computes the correct unnormalised output:
+```
+import os
+import pickle as pkl
+import numpy as np
+import tensorflow as tf
+
+model_name = <path to connect model>
+model = tf.keras.models.load_model(model_name, compile=False)
+with open(os.path.join(model_name, 'output_info.pkl'), 'rb') as f:
+    output_info = pkl.load(f)
+norm = output_info['normalize']
+
+if norm['method'] == 'standardization':
+    sig = np.sqrt(norm['variance'])
+    mu  = np.array(norm['mean'])
+    unnormalise = lambda x: x*sig + mu
+elif norm['method'] == 'min-max':
+    x_min = np.array(norm['x_min'])
+    x_max = np.array(norm['x_max'])
+    unnormalise = lambda x: x*(x_max - x_min) + x_min
+
+v = tf.constant([[..., ...]])    # input for neural network with dimension (N, M)
+                                 # where N is the number of input vectors and M is
+                                 # the number of cosmological parameters
+
+emulated_output = unnormalise( model(v) )
+```
+The indices for the different types of output is stored in the dictionary ```output_info['interval']```. For each kind of output (each type of Cl spectrum, derived parameter, etc.) an index or a list of two indices (start and end) is an item with the output name as the key.
+
+## 3. Example of workflow - ΛCDM
+Start by cloning CONNECT
+```
+git clone https://github.com/AarhusCosmology/connect_public.git
+```
+Then run the setup script from within the repository
+```
+cd connect_public
+./setup.sh
+```
+Answer yes to all questions and leave paths as blank
+
+Your CONNECT installation is now ready to create neural networks.
+
+The first thing you want to do is to create a parameter file in the ```input/``` folder. It is a good idea for the first run to use the ```input/example.param``` file (with iterative sampling), and this is also helpful for creating new parameter files. Open the parameter file in your favourite text editor and make sure that the parameter ```mcmc_sampler``` is set to the MCMC sampler you want to use. 
+
+If using a cluster with SLURM, you can use the jobscript ```jobscripts/example.js```. Open this in a text editor and adjust the SLURM parameters to fit your cluster. Now submit the job:
+```
+sbatch jobscripts/example.js
+```
+
+Once the job starts, you can monitor the progress in the ```data/<jobname>/output.log``` file. This tells you how far the iterative sampling has come, and what the code is currently doing. The first thing the code does is to create an initial model from a Latin hypercube sampling. The output from this will look like:
+```
+No initial model given
+Calculating 10000 initial CLASS models
+Training neural network
+1/1 - 0s - loss: 228.5294 - 58ms/epoch - 58ms/step
+
+Test loss: 228.5294189453125
+Initial model is example
+```
+From here it will begin the iterative process and each iteration will look something like
+```
+Beginning iteration no. 1
+Temperature is now 5.0
+Running MCMC sampling no. 1...
+MCMC sampling stopped since R-1 less than 0.05 has been reached.
+Number of accepted steps: 12340
+Keeping only last 5000 of the accepted Markovian steps
+Comparing latest iterations...
+Calculating 5000 CLASS models
+Training neural network
+1/1 - 0s - loss: 7.6460 - 34ms/epoch - 34ms/step
+
+Test loss: 7.645951747894287
+New model is example_1
+```
+This should not take more than 3-5 iterations with the setup in ```input/example.param```, so using 100 CPU cores with a walltime of 8-10 hours should be sufficient. The computational bottleneck is the ```Calculating N CLASS models``` step, but this is very parallelisable, so given enough CPU cores, this will be fast. The more time consuming bottleneck is the MCMC samplings which can (as of now) only utilise a few cores at a time, given that it is not very parallelisable.
+
+If the walltime was set too low or the iterative sampling did not halt for some reason, it is possible to resume the sampling from the last iteration. This is done by adding this line to your parameter file and submitting the job again:
+```
+resume_iterations = True
+```
+This can also be used if you want to continue a job with new settings (different loss function, architecture, etc.).
+
+When your job has halted, you can look in the ```data/<jobname>/output.log``` file for the name of the last model. This will generally be a good model that you can use for MCMC and similar, but if you want to train a new model for more epochs or with another architecture, you can do so on the same data collected by the iterative process. This done by changing the training parameters in the parameter file (```example.param``` used here) and running
+```python connect.py train input/example.param```
+either in a jobscript similar to ```jobscripts/example.js``` or locally with CPUs or GPUs (remember to load ```cuda``` if using GPUs).
+
+Once a neural network has been trained, this can be used as described in section [2.2](#22-using-a-trained-neural-network-for-mcmc).
+
+### 3.1 Useful commands for monitoring the iterative sampling
+While the iterative process is running each individual step can be monitored with different ```.log``` files. 
+
+All errors can be seen in the SLURM output file defined in the job script
+
+When calculating Class models, the computed amount can be monitored by the command
+```
+cat data/<jobname>/number_<iteration>/model_params_data/*.txt | wc -l
+```
+When an MCMC is running, the output from either Monte Python or Cobaya can be seen in
+```
+cat data/<jobname>/number_<iteration>/montepython.log
+```
+or
+```
+cat data/<jobname>/number_<iteration>/cobaya.log
+```
+When training the neural network, the progress can be monitored in
+```
+cat data/<jobname>/number_<iteration>/training.log
+```
+
+## 4. Support
+CONNECT is a work in progress and will be updated continuously. Please feel free to write me at andreas@phys.au.dk regarding any problems you might encounter (or just to get started properly). 
 
 You can also create an issue if you encounter a bug or have ideas for new features.
 
-## Citation
-Please cite the paper [arXiv:2205.15726](https://arxiv.org/abs/2205.15726) if using ```connect``` for publications. 
+## 5. Citation
+Please cite the paper [arXiv:2205.15726](https://arxiv.org/abs/2205.15726) if using CONNECT for publications. 

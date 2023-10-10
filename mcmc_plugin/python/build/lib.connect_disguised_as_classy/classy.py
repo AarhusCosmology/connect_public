@@ -53,7 +53,10 @@ class Class(real_classy.Class):
             else:
                 name = self.model_name
         try:
-            self.model = tf.keras.models.load_model(os.path.join(CONNECT_PATH,'trained_models',name), compile=False)
+            try:
+                self.model = tf.keras.models.load_model(os.path.join(CONNECT_PATH,'trained_models',name), compile=False)
+            except:
+                self.model = tf.keras.models.load_model(name, compile=False)
         except:
             raise NameError(f"No trained model by the name of '{name}'")
 

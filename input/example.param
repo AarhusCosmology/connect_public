@@ -90,11 +90,11 @@ mcmc_tol      = 0.05           # Tolerance of R-1 values for individual mcmc run
 
 iter_tol      = 0.1            # Tolerance of R-1 values for subsequent iterations
 
-N_max_points  = 2e+4           # The maximum number of points to take from each iteration
+N_max_points  = 1e+4           # The maximum number of points to take from each iteration
 
 keep_first_iteration = False   # Whether to keep data from first iteration (usually bad)
 
-sampling_likelihoods = ['Planck_lite', 'Planck_lowl_TT', 'Planck_lowl_EE']
+sampling_likelihoods = ['Planck_lite']
 
 
 
