@@ -60,59 +60,30 @@ class Class(real_classy.Class):
         except:
             raise NameError(f"No trained model by the name of '{name}'")
 
-        with open(os.path.join(CONNECT_PATH,'trained_models',name,'output_info.pkl'), 'rb') as f:
-            self.output_info = pkl.load(f)
+        try:
+            self.info = eval(self.model.get_raw_info().numpy().decode('utf-8'))
+        except:
+            with open(os.path.join(CONNECT_PATH,'trained_models',name,'output_info.pkl'), 'rb') as f:
+                self.info = pkl.load(f)
+            warnings.warn("Loading info dictionary from output_info.pkl is deprecated and will not be supported in the next update.")
 
-        self.param_names = self.output_info['input_names']
-        self.output_Cl = self.output_info['output_Cl']
-        self.output_Pk = self.output_info['output_Pk']
-        self.output_bg = self.output_info['output_bg']
-        self.output_th = self.output_info['output_th']
-        self.output_derived = self.output_info['output_derived']
-        self.ell_computed = self.output_info['ell']
-        self.output_interval = self.output_info['interval']
-        self.normalize_method = self.output_info['normalize']['method'] 
-
-        if self.normalize_method == 'standardization':
-            std  = np.sqrt(self.output_info['normalize']['variance'])
-            mean = np.array(self.output_info['normalize']['mean'])
-            self.normalize_output = lambda output: output*std + mean
-        elif self.normalize_method == 'min-max':
-            x_min = np.array(self.output_info['normalize']['x_min'])
-            x_max = np.array(self.output_info['normalize']['x_max'])
-            self.normalize_output = lambda output: output*(x_max - x_min) + x_min
-        elif self.normalize_method == 'log':
-            out_size = 0
-            for output_type in self.output_info['interval']:
-                for out_interval in self.output_info['interval'][output_type].values():
-                    if out_interval[1] > out_size:
-                        out_size = out_interval[1]
-            shift_array = np.zeros(out_size)
-            for output_type in [out for out in self.output_info['normalize'] if out != 'method']:
-                for output in self.output_info['normalize'][output_type]:
-                    lim0, lim1 = self.output_info['interval'][output_type][output]
-                    shift_array[lim0:lim1] = self.output_info['normalize'][output_type][output] 
-            self.normalize_output = lambda output: np.exp(output) - shift_array
-        elif self.normalize_method == 'factor':
-            out_size = 0
-            for output_type in self.output_info['interval']:
-                for out_interval in self.output_info['interval'][output_type].values():
-                    if isinstance(out_interval, (int,np.int32,np.int64)):
-                        out_size = out_interval + 1
-                    elif out_interval[1] > out_size:
-                        out_size = out_interval[1]
-            factor_array = np.zeros(out_size)
-            for output_type in self.output_info['normalize']:
-                if output_type != 'method':
-                    for output in self.output_info['normalize'][output_type]:
-                        if isinstance(self.output_info['interval'][output_type][output], (int,np.int32,np.int64)):
-                            idx = self.output_info['interval'][output_type][output]
-                            factor_array[idx] = self.output_info['normalize'][output_type][output]
-                        else:
-                            lim0, lim1 = self.output_info['interval'][output_type][output]
-                            factor_array[lim0:lim1] = self.output_info['normalize'][output_type][output]
-            self.normalize_output = lambda output: output/factor_array
-            
+        self.param_names = self.info['input_names']
+        self.output_Cl = self.info['output_Cl']
+        self.output_Pk = self.info['output_Pk']
+        self.output_bg = self.info['output_bg']
+        self.output_th = self.info['output_th']
+        self.output_derived = self.info['output_derived']
+        if len(self.output_Cl) > 0:
+            self.ell_computed = self.info['ell']
+        if len(self.output_Pk) > 0:
+            self.k_grid = self.info['k_grid']
+        if len(self.output_bg) > 0:
+            self.z_bg = self.info['z_bg']
+        if len(self.output_th) > 0:
+            self.z_th = self.info['z_th']
+        self.output_interval = self.info['interval']
+        if 'normalize' in self.info:
+            raise RuntimeError('Unnormalising the output from models is deprecated. Models now output the correct values instead of normalised values.')
 
         self.default = {'omega_b': 0.0223,
                         'omega_cdm': 0.1193,
@@ -175,7 +146,7 @@ class Class(real_classy.Class):
                         raise KeyError(f'The parameter {par_name} is not listed with a default value. You can add one in the load_model method in file: {os.path.join(CONNECT_PATH,__file__)}')
             v = tf.constant([params])
         
-            self.output_predict = self.normalize_output(self.model(v).numpy()[0])
+            self.output_predict = self.model(v).numpy()[0]
         except:
             raise SystemError('No model has been loaded - Set the attribute model_name to the name of a trained CONNECT model')
 
@@ -309,7 +280,7 @@ class Class(real_classy.Class):
         if not hasattr(self, 'output_predict'):
             self.compute()
 
-        z_bg = self.output_info['z_bg']
+        z_bg = self.info['z_bg']
         z_out = np.linspace(z_bg[-1],z_bg[0],1000)
         bg_dict={'z':z_out}
         for output in self.output_bg:
@@ -325,7 +296,7 @@ class Class(real_classy.Class):
         if not hasattr(self, 'output_predict'):
             self.compute()
 
-        z_th = self.output_info['z_th']
+        z_th = self.info['z_th']
         z_out = np.linspace(z_th[0],z_th[-1],10000)
         th_dict={'z':z_out}
         for output in self.output_th:

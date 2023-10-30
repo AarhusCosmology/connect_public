@@ -10,8 +10,8 @@ sampling     = sys.argv[3]
 sys.path.insert(0,CONNECT_PATH)
 
 import numpy as np
-from classy import Class
-from scipy.stats import qmc
+import classy
+from scipy.interpolate import CubicSpline
 from mpi4py import MPI
 
 from source.default_module import Parameters
@@ -101,16 +101,20 @@ else:
     out_dirs_Pk      = []
     out_dirs_bg      = []
     out_dirs_th      = []
+    out_dirs_ex      = []
     for Cl in param.output_Cl:
         out_dirs_Cl.append(os.path.join(directory, f'Cl_{Cl}_data/Cl_{Cl}_data_{rank}.txt'))
     for Pk in param.output_Pk:
         out_dirs_Pk.append(os.path.join(directory, f'Pk_{Pk}_data/Pk_{Pk}_data_{rank}.txt'))
     for bg in param.output_bg:
+        bg = bg.replace('/','\\')
         out_dirs_bg.append(os.path.join(directory, f'bg_{bg}_data/{bg}_data_{rank}.txt'))
     for th in param.output_th:
         out_dirs_th.append(os.path.join(directory, f'th_{th}_data/{th}_data_{rank}.txt'))
     if len(param.output_derived) > 0:
         out_dir_derived = os.path.join(directory, f'derived_data/derived_data_{rank}.txt')
+    for ex in param.extra_output:
+        out_dirs_ex.append(os.path.join(directory, f'extra_{ex}_data/{ex}_data_{rank}.txt'))
 
     param_header = '# '
     for par_name in param_names:
@@ -126,7 +130,7 @@ else:
         else:
             derived_header += der_name+'\t'
 
-    # Initialize data files
+    # Initialise data files
     with open(in_dir, 'w') as f:
         f.write(param_header)
 
@@ -168,7 +172,7 @@ else:
             else:
                 params['output']        = 'mPk'
             params['P_k_max_1/Mpc']     = 2.5*max(param.k_grid)
-            params['z_max_pk']          = max(param.z_list)
+            params['z_max_pk']          = max(param.z_Pk_list)
 
         if 'sigma8' in param.output_derived:
             if not 'mPk' in params['output']:
@@ -180,17 +184,23 @@ else:
                 params['P_k_max_1/Mpc'] = 1.
 
         try:
-            cosmo = Class()
+            cosmo = classy.Class()
             cosmo.set(params)
             cosmo.compute()
             if len(param.output_bg) > 0:
                 bg = cosmo.get_background()
-                bg_idx = get_z_idx(bg['z'])
-                z_bg = bg['z'][bg_idx]
+                if len(param.z_bg_list) > 0:
+                    z_bg = param.z_bg_list
+                else:
+                    bg_idx = get_z_idx(bg['z'])
+                    z_bg = bg['z'][bg_idx]
             if len(param.output_th) > 0:
                 th = cosmo.get_thermodynamics()
-                th_idx = get_z_idx(th['z'])
-                z_th = th['z'][th_idx]
+                if len(param.z_th_list) > 0:
+                    z_th = param.z_th_list
+                else:
+                    th_idx = get_z_idx(th['z'])
+                    z_th = th['z'][th_idx]
             if len(param.output_derived) > 0:
                 der = cosmo.get_current_derived_parameters(param.output_derived)
             if len(param.output_Cl) > 0:
@@ -200,17 +210,24 @@ else:
                     cls = get_computed_cls(cosmo)
                 ell = cls['ell'][2:]
             if len(param.output_Pk) > 0:
-                pks = {'k': param.k_grid, 'Pk':{}}
+                pks = {}
                 for pk in param.output_Pk:
-                    for z in param.z_list:
-                        pks['Pk'][z] = []
+                    pks[pk] = {}
+                    for z in param.z_Pk_list:
+                        pks[pk][z] = []
                         for k in param.k_grid:
-                            pks['Pk'][z].append(eval(f'cosmo.{pk}(k,z)'))
+                            pks[pk][z].append(eval(f'cosmo.{pk}(k,z)'))
             success = True
-        except:
+        except classy.CosmoComputationError as e:
             print('The following model failed in CLASS:', flush=True)
             print(params, flush=True)
             success = False
+            print(e.message)
+        except classy.CosmoSevereError as e:
+            print('The following model failed in CLASS:', flush=True)
+            print(params, flush=True)
+            success = False
+            print(e.message)
 
         if success:
             # Write data to data files
@@ -230,13 +247,13 @@ else:
 
             for out_dir, output in zip(out_dirs_Pk, param.output_Pk):
                 with open(out_dir, 'a') as f:
-                    for i, k in enumerate(pks['k']):
-                        if i != len(pks['k'])-1:
+                    for i, k in enumerate(param.k_grid):
+                        if i != len(param.k_grid)-1:
                             f.write(str(k)+'\t')
                         else:
                             f.write(str(k)+'\n')
-                    for z in param.z_list:
-                        par_out = pks['Pk'][z]
+                    for z in param.z_Pk_list:
+                        par_out = pks[output][z]
                         for i, p in enumerate(par_out):
                             if i != len(par_out)-1:
                                 f.write(str(p)+'\t')
@@ -255,7 +272,10 @@ else:
                             f.write(str(p)+'\n')
 
             for out_dir, output in zip(out_dirs_bg, param.output_bg):
-                par_out = np.flip(bg[output][bg_idx])
+                if len(param.z_bg_list) > 0:
+                    par_out = CubicSpline(np.flip(bg['z']), np.flip(bg[output]), bc_type='natural')(param.z_bg_list)
+                else:
+                    par_out = np.flip(bg[output][bg_idx])
                 with open(out_dir, 'a') as f:
                     for i, z in enumerate(z_bg):
                         if i != len(z_bg)-1:
@@ -269,7 +289,10 @@ else:
                             f.write(str(p)+'\n')
 
             for out_dir, output in zip(out_dirs_th, param.output_th):
-                par_out = th[output][th_idx]
+                if len(param.z_th_list) > 0:
+                    par_out = CubicSpline(th['z'], th[output], bc_type='natural')(param.z_th_list)
+                else:
+                    par_out = th[output][th_idx]
                 with open(out_dir, 'a') as f:
                     for i, z in enumerate(z_th):
                         if i != len(z_th)-1:
@@ -277,6 +300,19 @@ else:
                         else:
                             f.write(str(z)+'\n')
                     for i, p in enumerate(par_out):
+                        if i != len(par_out)-1:
+                            f.write(str(p)+'\t')
+                        else:
+                            f.write(str(p)+'\n')
+        
+            for out_dir, output in zip(out_dirs_ex, param.extra_output):
+                par_out = eval(param.extra_output[output])
+                try:
+                    len(par_out)
+                except:
+                    par_out = [par_out]
+                with open(out_dir, 'a') as f:
+                     for i, p in enumerate(par_out):
                         if i != len(par_out)-1:
                             f.write(str(p)+'\t')
                         else:

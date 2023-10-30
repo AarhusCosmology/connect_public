@@ -22,7 +22,7 @@ class LossFunctions():
 class ActivationFunctions():
 
     def __init__(self, N_nodes):
-        # Initialize trainable parameters for custom activation function
+        # Initialise trainable parameters for custom activation function
         alpha_ini = tf.initializers.GlorotNormal()
         beta_ini  = tf.initializers.GlorotNormal()
         gamma_ini = tf.initializers.GlorotNormal()
