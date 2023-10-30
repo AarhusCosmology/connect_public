@@ -230,7 +230,7 @@ The ```info_dict``` in the above code snippet is a ```DictWrapper``` object that
 ```
 info_dict = eval(model.get_raw_info().decode('utf-8'))
 ```
-This ```info_dict``` is now useable without haveing to change any types.
+This ```info_dict``` is now useable without having to change any types.
 
 ## 3. Example of workflow - ΛCDM
 Start by cloning CONNECT
