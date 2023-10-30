@@ -40,6 +40,27 @@ def get_computed_cls(cosmo       # A computed CLASS model
     return new_cls
 
 
+def get_z_idx(z):
+    z=z.copy()
+    if z[-1] > z[0]:
+        grid = np.logspace(np.log10(z[1]), np.log10(z[-1]), 99)
+    else:
+        grid = np.logspace(np.log10(z[0]), np.log10(z[-2]), 99)
+    z_idx = []
+    for zg in grid:
+        i = np.abs(z-zg).argmin()
+        z[i] = np.inf
+        z_idx.append(i)
+    j = len(z) - 1
+    while len(z_idx) < 100:
+        if j in z_idx:
+            j -= 1
+        else:
+            z_idx.append(j)
+    return np.array(sorted(z_idx))
+
+
+
 def create_output_folders(param,            # Parameter object
                           iter_num=None,    # Current iteration number
                           reset=True,       # Resets output folders
@@ -61,11 +82,14 @@ def create_output_folders(param,            # Parameter object
                 for output in param.output_Pk:
                     os.mkdir(os.path.join(path, f'N-{param.N}/Pk_{output}_data'))
                 for output in param.output_bg:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/{output}_data'))
+                    output = output.replace('/','\\')
+                    os.mkdir(os.path.join(path, f'N-{param.N}/bg_{output}_data'))
                 for output in param.output_th:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/{output}_data'))
+                    os.mkdir(os.path.join(path, f'N-{param.N}/th_{output}_data'))
                 if len(param.output_derived) > 0:
                     os.mkdir(os.path.join(path, f'N-{param.N}/derived_data'))
+                for output in param.extra_output:
+                    os.mkdir(os.path.join(path, f'N-{param.N}/extra_{output}_data'))
 
             elif reset:
                 for name in os.listdir(path):
@@ -84,14 +108,18 @@ def create_output_folders(param,            # Parameter object
                 os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/Pk_{output}_data')}")
                 os.mkdir(os.path.join(path, f'number_{iter_num}/Pk_{output}_data'))
             for output in param.output_bg:
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/{output}_data'))
+                output = output.replace('/','\\')
+                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/bg_{output}_data')}")
+                os.mkdir(os.path.join(path, f'number_{iter_num}/bg_{output}_data'))
             for output in param.output_th:
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/{output}_data'))
+                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/th_{output}_data')}")
+                os.mkdir(os.path.join(path, f'number_{iter_num}/th_{output}_data'))
             if len(param.output_derived) > 0:
                 os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/derived_data')}")
                 os.mkdir(os.path.join(path, f'number_{iter_num}/derived_data'))
+            for output in param.extra_output:
+                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/extra_{output}_data')}")
+                os.mkdir(os.path.join(path, f'number_{iter_num}/extra_{output}_data'))
 
 
 def join_data_files(param     # Parameter object
@@ -103,13 +131,42 @@ def join_data_files(param     # Parameter object
 
 
 def combine_sets_of_data_files(new_data,   # Data file for the new data (destination for combined data)
-                               old_data    # Data file for the old data
+                               old_data,   # Data file for the old data
+                               Pk=False,
+                               no_header=False
                            ):
+    if not Pk:
+        with open(new_data,'a') as f:
+            with open(old_data,'r') as g:
+                if no_header:
+                    start_idx = 0
+                else:
+                    start_idx = 1
+                for line in list(g)[start_idx:]:
+                    f.write(line)
+    else:
+        with open(new_data,'r') as f:
+            new_lines = list(f)
+        with open(old_data,'r') as f:
+            old_lines = list(f)
 
-    with open(new_data,'a') as f:
-        with open(old_data,'r') as g:
-            for line in list(g)[1:]:
-                f.write(line)
+        lines_separated = {}
+        z_keys = []
+        for line in new_lines[1:]+old_lines[1:]:
+            if line[0] == "#":
+                z_keys.append(line)
+                if z_keys[-1] not in lines_separated:
+                    lines_separated[z_keys[-1]] = []
+            else:
+                lines_separated[z_keys[-1]].append(line)
+        
+        N = int(len(z_keys)/2)
+        with open(new_data,'w') as f:
+            f.write(new_lines[0])
+            for key in z_keys[:N]:
+                f.write(key)
+                for line in lines_separated[key]:
+                    f.write(line)
 
 
 def combine_iterations_data(param,             # Parameter object
@@ -128,13 +185,17 @@ def combine_iterations_data(param,             # Parameter object
                                    os.path.join(path_j, f'Cl_{output}.txt'))
     for output in param.output_Pk:
         combine_sets_of_data_files(os.path.join(path_i, f'Pk_{output}.txt'),
-                                   os.path.join(path_j, f'Pk_{output}.txt'))
+                                   os.path.join(path_j, f'Pk_{output}.txt'), Pk=True)
     for output in param.output_bg:
-        combine_sets_of_data_files(os.path.join(path_i, f'Cl_{output}.txt'),
-                                   os.path.join(path_j, f'Cl_{output}.txt'))
+        output = output.replace('/','\\')
+        combine_sets_of_data_files(os.path.join(path_i, f'bg_{output}.txt'),
+                                   os.path.join(path_j, f'bg_{output}.txt'))
     for output in param.output_th:
-        combine_sets_of_data_files(os.path.join(path_i, f'{output}.txt'),
-                                   os.path.join(path_j, f'{output}.txt'))
+        combine_sets_of_data_files(os.path.join(path_i, f'th_{output}.txt'),
+                                   os.path.join(path_j, f'th_{output}.txt'))
+    for output in param.extra_output:
+        combine_sets_of_data_files(os.path.join(path_i, f'extra_{output}.txt'),
+                                   os.path.join(path_j, f'extra_{output}.txt'), no_header=True)
 
 
 

@@ -40,7 +40,7 @@ N_hidden_layers      = 6                  # Number of hidden layers in fully-con
 
 N_nodes	             = 512	          # Number of nodes in each hidden layer
 
-normalization_method = 'standardization'  # Normalisation method for output data
+normalisation_method = 'standardisation'  # Normalisation method for output data
 
 
 
@@ -52,6 +52,20 @@ N = 1e+4       # Amount of points in lhc. When using the iterative
 
 output_Cl      = ['tt', 'te', 'ee']         # Cl spectra in output
 
+output_Pk      = ['pk','pk_cb']		    # Matter power spectra in output
+z_Pk_list      = [0.0, 1.5, 13.65]	    # z-values for matter power spectra
+
+output_bg      = ['ang.diam.dist.',         # Background functions in output
+	          'conf. time [Mpc]',
+	          'H [1/Mpc]'
+		  ]
+z_bg_list      = [0.35, 0.57, 0.106]        # Optional list of z-values for background
+
+output_th      = ['w_b',                    # Thermodynamics functions in output
+	          'tau_d'
+		  ]
+z_th_list      = [0.35, 0.57m 0.106]        # Optional list of z-values	for thermodynamics
+
 output_derived = ['z_reio',                 # Derived parameters in output
 		  'Omega_Lambda', 
 		  'YHe', 
@@ -59,6 +73,9 @@ output_derived = ['z_reio',                 # Derived parameters in output
 		  'sigma8', 
 		  '100*theta_s'
 		  ]
+
+extra_output   = {'rs_drag': 'cosmo.rs_drag()'}  # Additional output {name: string of code}
+
 
 extra_input    = {'k_pivot': 0.05,	    # Extra input to CLASS
 		  'N_ur':    2.0328,
@@ -86,11 +103,11 @@ mcmc_sampler  = 'montepython'  # mcmc sampler to use in iterations (cobaya or mo
 
 initial_model = None           # Name of initial model to start the iterations
 
-mcmc_tol      = 0.05           # Tolerance of R-1 values for individual mcmc runs
+mcmc_tol      = 0.01           # Tolerance of R-1 values for individual mcmc runs
 
 iter_tol      = 0.1            # Tolerance of R-1 values for subsequent iterations
 
-N_max_points  = 1e+4           # The maximum number of points to take from each iteration
+N_max_points  = 2e+4           # The maximum number of points to take from each iteration
 
 keep_first_iteration = False   # Whether to keep data from first iteration (usually bad)
 

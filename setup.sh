@@ -249,9 +249,10 @@ then
     conda clean --index-cache
     # Remove ConnectEnvironment if it exists
     conda env remove -y --name $env_name
-    conda create -y --name $env_name python=3.10 cython=3.0 matplotlib=3.7 scipy=1.11 numpy=1.26 astropy=5.1 pip=23.2 numexpr=2.8 pandas=2.0
+    conda create -y --name $env_name python=3.10 cython=3.0 scipy=1.11 numpy=1.26 astropy=5.1 pip=23.2 numexpr=2.8 pandas=2.0
     conda activate $env_name
     export LD_LIBRARY_PATH=/lib64:$LD_LIBRARY_PATH
+    pip install matplotlib==3.7
     pip install mpi4py==3.1.4
     pip install tensorflow==2.10
     pip install tensorflow-probability==0.18.0
@@ -372,6 +373,7 @@ then
 	cd resources
 	git clone https://github.com/lesgourg/class_public.git
 	cd class_public
+	git checkout aa92943e4ab86b56970953589b4897adf2bd0f99
 	echo "--> Building classy wrapper..."
 	sed -i 's/cpdef/cdef/g' python/classy.pyx
 	make clean

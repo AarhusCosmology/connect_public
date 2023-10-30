@@ -207,7 +207,7 @@ class Sampling():
         if self.param.save_name != None:
             model_name = self.param.save_name
         else:
-            model_name = f'{self.param.jobname}_N{self.param.N}_bs{self.param.batchsize}_e{self.param.epochs}'
+            model_name = f'{tr.param.jobname}_N{tr.N}_bs{tr.param.batchsize}_e{tr.param.epochs}'
         if not self.param.overwrite_model:
             M = 1
             if os.path.isdir(os.path.join('trained_models', model_name)):
