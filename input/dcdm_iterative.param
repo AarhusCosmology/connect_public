@@ -13,10 +13,6 @@ parameters={'omega_b'        :  [ 0.014,          0.039          ],
             'Gamma_dcdm'     :  [ 10,             5000           ]}
 
 # Specify additional parameters
-N_cpu               = 1000
-mem_create          = '20g'
-walltime_train      = '05:00:00'
-walltime_create     = '06:00:00'
 train_ratio         = 0.99
 val_ratio           = 0.05
 epochs              = 300
@@ -29,8 +25,7 @@ extra_input         = {'k_pivot': 0.05,
 		       'N_ur':    2.0328,
 		       'N_ncdm':  1,
 		       'm_ncdm':  0.06,
-		       'T_ncdm':  0.71611,
-		       'sBBN file': '/home/andreas/codes/CLASSpp/bbn/sBBN.dat'}
+		       'T_ncdm':  0.71611}
 
 prior_ranges = parameters
 bestfit_guesses = {'Gamma_dcdm': 35,

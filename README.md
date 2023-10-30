@@ -60,7 +60,7 @@ cmake --version
 ```
 
 ### 1.1 Manual setup
-The code depends on [Class](https://github.com/lesgourg/class_public) and either [Monte Python](https://github.com/brinckmann/montepython_public) or [Cobaya](https://github.com/CobayaSampler/cobaya) (if iterative sampling is to be used - see [arXiv:2205.15726](https://arxiv.org/abs/2205.15726)), so one needs functioning installations of these. One also requires the Planck 2018 likelihood installed. The paths to ```connect_public/mcmc_plugin```, Monte Python, and the Planck likelihood should be set in ```mcmc_plugin/connect.conf``` in order for ```Monte Python``` to use a trained CONNECT model instead of Class. ```mcmc_plugin/connect.conf``` should look something like
+If one does not wish to use the ```setup.sh``` script, the setup can be performed manually. The code depends on [Class](https://github.com/lesgourg/class_public) and either [Monte Python](https://github.com/brinckmann/montepython_public) or [Cobaya](https://github.com/CobayaSampler/cobaya) (if iterative sampling is to be used - see [arXiv:2205.15726](https://arxiv.org/abs/2205.15726)), so one needs functioning installations of these. One also requires the Planck 2018 likelihood installed. The paths to ```connect_public/mcmc_plugin```, Monte Python, and the Planck likelihood should be set in ```mcmc_plugin/connect.conf``` in order for ```Monte Python``` to use a trained CONNECT model instead of Class. ```mcmc_plugin/connect.conf``` should look something like
 ```
 path['cosmo'] = '<path to connect_public>/mcmc_plugin'
 path['clik'] = '<path to planck2018>/code/plc_3.0/plc-3.01/'
@@ -113,7 +113,15 @@ There are two different ways of gathering training data, Latin hypercube samplin
 parameters           = {'H0'        : [64,   76  ],   # parameters to sample in given as a dictionary with **min** and **max** values in a list
                        'omega_cdm'  : [0.10, 0.14]}
 extra_input          = {'omega_b': 0.0223}            # extra input for CLASS given as normal CLASS input
-output_Cl            = ['tt', 'te', 'ee']             # which Cl spectra to emulate
+output_Cl            = ['tt', 'te', 'ee']             # which Cl spectra to emulate. These must exist in the cosmo.lensed_cl() dictinary
+output_Pk            = ['pk', 'pk_cb']                # which Pk spectra to emulate. These must exist as a method in the classy wrapper, e.g. cosmo.pk_cb(k,z)
+k_grid               = [1e-2, 1e-1, 1, 10]            # k_grid of matter power spectra. The default grid of 100 values is optimal in most cases (optional)
+z_Pk_list            = [0.0, 1.5, 13.6]               # list of z-values to compute matter power spectra for
+output_bg            = ['ang.diam.dist']              # which background functions to emulate. These must exist in cosmo.get_background()
+z_bg_list            = [0.0, 0.3, 0.7]                # list of z-values to compute background functions for. This defaults to 100 evenly spaced points in log space (optional)
+output_th            = ['w_b', 'tau_d']               # which thermodynamics functions to emulate. These must exist in cosmo.get_thermodynamics()
+z_th_list            = [0.0, 0.3, 0.7]                # list of z-values to compute thermodynamics functions for. This defaults to 100 evenly spaced points in log space (optional)
+extra_output         = {'rs_drag': 'cosmo.rs_drag()'} # completely custom output. Name of the output is the key and the value is a string of code that outputs either a float, an int or a 1D array
 output_derived       = ['YHe', 'sigma_8']             # which derived parameters to emulate
 N                    = 1e+4                           # how many data points to sample using a Latin hypercube (initial step for iterative sampling)
 sampling             = 'iterative'                    # sampling method - 'lhc' or 'iterative'
@@ -182,6 +190,8 @@ ln mcmc_plugin/python/build/lib.connect_disguised_as_classy/classy.py "mcmc_plug
 ```
 This creates a hard link to the wrapper with a name that is accepted by the Monte Python bug.
 
+The ```setup.sh``` script now automatically switches to the ```3.5``` branch by default. Later branches are also supported now by automatically running the code snippet above when newer versions of Monte Python are used.
+
 #### 2.2.2 Cobaya
 In Cobaya one must specify the CONNECT wrapper as the theory code in the input dictionary/yaml file. It should be specified in the following way:
 ```
@@ -198,35 +208,29 @@ Again, if the model is located under ```trained_models``` the name is sufficient
 Use only a single CPU core for each chain here as well
 
 #### 2.2.3 Using a trained neural network on its own
-If one is loading a model without the wrapper, it is important also to load the info dictionary stored in the pickled file ```<path to neural network>/output_info.pkl```. This dictionary contains information on the parameter names, the normalisation, the output dimensions, etc. The following code snippet loads a model and computes the correct unnormalised output:
+If one is loading a model without the wrapper, it is important to know about the info dictionary that is now stored within the model object. This dictionary contains information on the parameter names, the output dimensions, etc. The following code snippet loads a model and computes the output:
 ```
 import os
-import pickle as pkl
 import numpy as np
 import tensorflow as tf
 
 model_name = <path to connect model>
 model = tf.keras.models.load_model(model_name, compile=False)
-with open(os.path.join(model_name, 'output_info.pkl'), 'rb') as f:
-    output_info = pkl.load(f)
-norm = output_info['normalize']
-
-if norm['method'] == 'standardization':
-    sig = np.sqrt(norm['variance'])
-    mu  = np.array(norm['mean'])
-    unnormalise = lambda x: x*sig + mu
-elif norm['method'] == 'min-max':
-    x_min = np.array(norm['x_min'])
-    x_max = np.array(norm['x_max'])
-    unnormalise = lambda x: x*(x_max - x_min) + x_min
+info_dict = model.info_dict
 
 v = tf.constant([[..., ...]])    # input for neural network with dimension (N, M)
                                  # where N is the number of input vectors and M is
                                  # the number of cosmological parameters
 
-emulated_output = unnormalise( model(v) )
+emulated_output = model(v)
 ```
-The indices for the different types of output is stored in the dictionary ```output_info['interval']```. For each kind of output (each type of Cl spectrum, derived parameter, etc.) an index or a list of two indices (start and end) is an item with the output name as the key.
+The indices for the different types of output is stored in the dictionary ```info_dict['interval']```. For each kind of output (each type of Cl spectrum, matter power spectrum, derived parameter, etc.) an index or a list of two indices (start and end) is an item with the output name as the key.
+
+The ```info_dict``` in the above code snippet is a ```DictWrapper``` object that functions like a dictionary. All values are TensorFlow variables and all strings (except keys) are byte strings. The byte strings can be converted using ```<byte string>.decode('utf-8')```. If one wants a pure python dictionary with regular types (```list```, ```float```, ```str```), then the same info dictionary can be loaded from a raw string version:
+```
+info_dict = eval(model.get_raw_info().decode('utf-8'))
+```
+This ```info_dict``` is now useable without haveing to change any types.
 
 ## 3. Example of workflow - ΛCDM
 Start by cloning CONNECT
