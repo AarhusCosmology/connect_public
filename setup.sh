@@ -1,11 +1,9 @@
 #!/bin/bash
-"""
-This script installs all dependencies and sets up a conda environment.
-The user must have the loadable kernel modules 'intel' and 'mkl' installed
 
-Author: Andreas Nygaard (2022)
-
-"""
+# This script installs all dependencies and sets up a conda environment.
+# The user must have the loadable kernel modules 'intel' and 'mkl' installed
+#
+# Author: Andreas Nygaard (2022)
 
 
 
