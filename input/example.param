@@ -64,7 +64,7 @@ z_bg_list      = [0.35, 0.57, 0.106]        # Optional list of z-values for back
 output_th      = ['w_b',                    # Thermodynamics functions in output
 	          'tau_d'
 		  ]
-z_th_list      = [0.35, 0.57m 0.106]        # Optional list of z-values	for thermodynamics
+z_th_list      = [0.35, 0.57, 0.106]        # Optional list of z-values	for thermodynamics
 
 output_derived = ['z_reio',                 # Derived parameters in output
 		  'Omega_Lambda', 
