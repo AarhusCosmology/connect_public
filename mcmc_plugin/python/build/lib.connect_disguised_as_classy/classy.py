@@ -68,19 +68,22 @@ class Class(real_classy.Class):
             warnings.warn("Loading info dictionary from output_info.pkl is deprecated and will not be supported in the next update.")
 
         self.param_names = self.info['input_names']
-        self.output_Cl = self.info['output_Cl']
-        self.output_Pk = self.info['output_Pk']
-        self.output_bg = self.info['output_bg']
-        self.output_th = self.info['output_th']
-        self.output_derived = self.info['output_derived']
-        if len(self.output_Cl) > 0:
+        if 'output_Cl' in self.info:
+            self.output_Cl = self.info['output_Cl']
             self.ell_computed = self.info['ell']
-        if len(self.output_Pk) > 0:
+        if 'output_Pk' in self.info:
+            self.output_Pk = self.info['output_Pk']
             self.k_grid = self.info['k_grid']
-        if len(self.output_bg) > 0:
+        if 'output_bg' in self.info:
+            self.output_bg = self.info['output_bg']
             self.z_bg = self.info['z_bg']
-        if len(self.output_th) > 0:
+        if 'output_th' in self.info:
+            self.output_th = self.info['output_th']
             self.z_th = self.info['z_th']
+        if 'output_derived' in self.info:
+            self.output_derived = self.info['output_derived']
+        if 'extra_output' in self.info:
+            self.extra_output = self.info['extra_output']
         self.output_interval = self.info['interval']
         if 'normalize' in self.info:
             raise RuntimeError('Unnormalising the output from models is deprecated. Models now output the correct values instead of normalised values.')
