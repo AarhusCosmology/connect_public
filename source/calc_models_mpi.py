@@ -275,7 +275,7 @@ else:
                 if len(param.z_bg_list) > 0:
                     par_out = CubicSpline(np.flip(bg['z']), np.flip(bg[output]), bc_type='natural')(param.z_bg_list)
                 else:
-                    par_out = np.flip(bg[output][bg_idx])
+                    par_out = bg[output][bg_idx]
                 with open(out_dir, 'a') as f:
                     for i, z in enumerate(z_bg):
                         if i != len(z_bg)-1:
