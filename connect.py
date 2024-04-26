@@ -76,6 +76,24 @@ if keyword == 'create':
             from source.tools import join_data_files
             join_data_files(param)
 
+    elif param.sampling == 'hypersphere':
+        with open(path+f'N-{param.N}/output.log', mode) as sys.stdout:
+            print(log_string, flush=True)
+            print('Sampling method    :  Hypersphere', flush=True)
+            print('\n'+'-'*62+'\n', flush=True)
+            s.create_hypersphere_data()
+            from source.tools import join_data_files
+            join_data_files(param)
+
+    elif param.sampling == 'pickle':
+        with open(path+f'N-{param.N}/output.log', mode) as sys.stdout:
+            print(log_string, flush=True)
+            print('Sampling method    :  From Pickle file', flush=True)
+            print('\n'+'-'*62+'\n', flush=True)
+            s.create_pickle_data()
+            from source.tools import join_data_files
+            join_data_files(param)
+
 
 #####################################
 # _____________ train _____________ #

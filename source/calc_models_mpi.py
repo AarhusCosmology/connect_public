@@ -2,7 +2,7 @@ import os
 import sys
 import time
 import itertools
-import pickle as pkl
+import signal
 
 param_file   = sys.argv[1]
 CONNECT_PATH = sys.argv[2]
@@ -15,7 +15,7 @@ from scipy.interpolate import CubicSpline
 from mpi4py import MPI
 
 from source.default_module import Parameters
-from source.tools import get_computed_cls, get_z_idx
+from source.tools import get_computed_cls, get_z_idx, get_covmat
 
 
 param_file = os.path.join(CONNECT_PATH, param_file)
@@ -29,7 +29,7 @@ if sampling == 'iterative':
         directory = os.path.join(path, f'number_{iteration}')
     except:
         directory = os.path.join(path, f'N-{param.N}')
-elif sampling == 'lhc':
+elif sampling in ['lhc','hypersphere','pickle']:
     directory = os.path.join(path, f'N-{param.N}')
 
 comm = MPI.COMM_WORLD
@@ -39,6 +39,16 @@ N_slaves = comm.Get_size()-1
 get_slave = itertools.cycle(range(1,N_slaves+1))
 
 
+if len(param.output_Cl) > 0:
+    cosmo = classy.Class()
+    input_params = {'output':'tCl, lCl, pCl', 'lensing':'yes'}
+    if 'l_max_scalars' in param.extra_input:
+        input_params.update({'l_max_scalars':param.extra_input['l_max_scalars']})
+    cosmo.set(input_params)
+    cosmo.compute()
+    cls = get_computed_cls(cosmo)
+    global_ell = cls['ell']
+    
 
 ## rank == 0 (master)
 if rank == 0:
@@ -52,20 +62,21 @@ if rank == 0:
 
         
     elif sampling == 'lhc':
-        with open(os.path.join(CONNECT_PATH, f'data/lhc_samples/{len(param.parameters.keys())}_{param.N}.sample'),'rb') as f:
-            sample = pkl.load(f)
-        data = sample.T
-        for i, name in enumerate(param_names):
-            if name in param.log_priors:
-                data[i] *= np.log10(param.parameters[name][1]) - np.log10(param.parameters[name][0])
-                data[i] += np.log10(param.parameters[name][0])
-                data[i] = np.power(10.,data[i])
-            else:
-                data[i] *= param.parameters[name][1] - param.parameters[name][0]
-                data[i] += param.parameters[name][0]
-        data = data.T
+        from source.ini_samplers import LatinHypercubeSampler
+        lhc = LatinHypercubeSampler(param)
+        data = lhc.run()
 
+    elif sampling == 'hypersphere':
+        from source.ini_samplers import HypersphereSampler
+        hs = HypersphereSampler(param)
+        data = hs.run()
 
+    elif sampling == 'pickle':
+        from source.ini_samplers import PickleSample
+        ps = PickleSampler(param)
+        data = ps.run()
+
+        
     sleep_short = 0.0001
     sleep_long = 0.1
     sleep_dict = {}
@@ -143,6 +154,11 @@ else:
     except:
         pass
 
+    # Initialise timeout signal
+    def timeout_handler(num, stack):
+        raise Exception('timeout')
+    signal.signal(signal.SIGALRM, timeout_handler)
+    
 
     # Iterate over each model
     while True:
@@ -183,6 +199,7 @@ else:
             if not 'P_k_max_1/Mpc' in params:
                 params['P_k_max_1/Mpc'] = 1.
 
+        signal.alarm(200) # CLASS computations must not take longer than 200 seconds
         try:
             cosmo = classy.Class()
             cosmo.set(params)
@@ -204,10 +221,10 @@ else:
             if len(param.output_derived) > 0:
                 der = cosmo.get_current_derived_parameters(param.output_derived)
             if len(param.output_Cl) > 0:
-                try:
-                    cls = cosmo.lensed_cl_computed() # Only available in CLASS++
-                except:
-                    cls = get_computed_cls(cosmo)
+                cls = get_computed_cls(cosmo, ell_array=global_ell)
+                if any(np.isnan(cls[key]).any() for key in cls):
+                    raise classy.CosmoComputationError(
+                        'Class computation completed with NaN values in CMB power spectra.')
                 ell = cls['ell'][2:]
             if len(param.output_Pk) > 0:
                 pks = {}
@@ -228,7 +245,16 @@ else:
             print(params, flush=True)
             success = False
             print(e.message)
-
+        except Exception as e:
+            if e == 'timeout':
+                print('The following model took too long to complete:', flush=True)
+                print(params, flush=True)
+                success = False
+            else:
+                raise e
+        finally:
+            signal.alarm(0)
+                
         if success:
             # Write data to data files
             for out_dir, output in zip(out_dirs_Cl, param.output_Cl):

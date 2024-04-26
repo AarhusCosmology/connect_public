@@ -12,47 +12,51 @@ class Parameters():
         self.param_file = param_file
 
         default = {
-                   'parameters'           :  ( {}                      ,  dict  ),
-                   'jobname'              :  ( jobname                 ,  str   ),
-                   'N'                    :  ( 10000                   ,  int   ),
-                   'train_ratio'          :  ( 0.9                     ,  float ),
-                   'val_ratio'            :  ( 0.01                    ,  float ),
-                   'save_name'            :  ( None                    ,  str   ),
-                   'overwrite_model'      :  ( False                   ,  bool  ),
-                   'batchsize'            :  ( 64                      ,  int   ),
-                   'epochs'               :  ( 200                     ,  int   ),
-                   'loss_function'        :  ( 'cosmic_variance'       ,  str   ),
-                   'activation_function'  :  ( 'alsing'                ,  str   ),
-                   'N_nodes'              :  ( 512                     ,  int   ),
-                   'N_hidden_layers'      :  ( 4                       ,  int   ),
-                   'output_activation'    :  ( False                   ,  bool  ),
-                   'extra_input'          :  ( {}                      ,  dict  ),
-                   'output_Cl'            :  ( ['tt']                  ,  list  ),
-                   'output_Pk'            :  ( []                      ,  list  ),
-                   'k_grid'               :  ( self.get_k_grid(param)  ,  list  ),
-                   'z_Pk_list'            :  ( [0.0]                   ,  list  ),
-                   'output_bg'            :  ( []                      ,  list  ),
-                   'z_bg_list'            :  ( []                      ,  list  ),
-                   'output_th'            :  ( []                      ,  list  ),
-                   'z_th_list'            :  ( []                      ,  list  ),
-                   'output_derived'       :  ( []                      ,  list  ),
-                   'extra_output'         :  ( {}                      ,  dict  ),
-                   'N_max_points'         :  ( 10000                   ,  int   ),
-                   'normalisation_method' :  ( 'standardisation'       ,  str   ),
-                   'sampling'             :  ( 'lhc'                   ,  str   ),
-                   'mcmc_sampler'         :  ( 'cobaya'                ,  str   ),
-                   'initial_model'        :  ( None                    ,  str   ),
-                   'resume_iterations'    :  ( False                   ,  bool  ),
-                   'prior_ranges'         :  ( {}                      ,  dict  ),
-                   'log_priors'           :  ( []                      ,  list  ),
-                   'bestfit_guesses'      :  ( {}                      ,  dict  ),
-                   'sigma_guesses'        :  ( {}                      ,  dict  ),
-                   'keep_first_iteration' :  ( False                   ,  bool  ),
-                   'mcmc_tol'             :  ( 0.01                    ,  float ),
-                   'iter_tol'             :  ( 0.1                     ,  float ),
-                   'temperature'          :  ( 5.0                     ,  float ),
-                   'sampling_likelihoods' :  ( ['Planck_lite']         ,  list  ),
-                   'extra_cobaya_lkls'    :  ( {}                      ,  dict  ),
+                   'parameters'           :  ( {}                      ,  dict         ),
+                   'jobname'              :  ( jobname                 ,  str          ),
+                   'N'                    :  ( 10000                   ,  int          ),
+                   'train_ratio'          :  ( 0.9                     ,  float        ),
+                   'val_ratio'            :  ( 0.01                    ,  float        ),
+                   'save_name'            :  ( None                    ,  str          ),
+                   'overwrite_model'      :  ( False                   ,  bool         ),
+                   'batchsize'            :  ( 64                      ,  int          ),
+                   'epochs'               :  ( 200                     ,  int          ),
+                   'loss_function'        :  ( 'cosmic_variance'       ,  str          ),
+                   'activation_function'  :  ( 'alsing'                ,  str          ),
+                   'N_nodes'              :  ( 512                     ,  int          ),
+                   'N_hidden_layers'      :  ( 4                       ,  int          ),
+                   'output_activation'    :  ( False                   ,  bool         ),
+                   'extra_input'          :  ( {}                      ,  dict         ),
+                   'output_Cl'            :  ( ['tt']                  ,  list         ),
+                   'output_Pk'            :  ( []                      ,  list         ),
+                   'k_grid'               :  ( self.get_k_grid(param)  ,  list         ),
+                   'z_Pk_list'            :  ( [0.0]                   ,  list         ),
+                   'output_bg'            :  ( []                      ,  list         ),
+                   'z_bg_list'            :  ( []                      ,  list         ),
+                   'output_th'            :  ( []                      ,  list         ),
+                   'z_th_list'            :  ( []                      ,  list         ),
+                   'output_derived'       :  ( []                      ,  list         ),
+                   'extra_output'         :  ( {}                      ,  dict         ),
+                   'N_max_points'         :  ( 10000                   ,  int          ),
+                   'normalisation_method' :  ( 'standardisation'       ,  str          ),
+                   'sampling'             :  ( 'lhc'                   ,  str          ),
+                   'mcmc_sampler'         :  ( 'cobaya'                ,  str          ),
+                   'initial_model'        :  ( None                    ,  str          ),
+                   'initial_sampling'     :  ( 'lhc'                   ,  str          ),
+                   'resume_iterations'    :  ( False                   ,  bool         ),
+                   'prior_ranges'         :  ( {}                      ,  dict         ),
+                   'log_priors'           :  ( []                      ,  list         ),
+                   'bestfit_guesses'      :  ( {}                      ,  dict         ),
+                   'sigma_guesses'        :  ( {}                      ,  dict         ),
+                   'keep_first_iteration' :  ( False                   ,  bool         ),
+                   'mcmc_tol'             :  ( 0.01                    ,  float        ),
+                   'iter_tol'             :  ( 0.1                     ,  float        ),
+                   'temperature'          :  ( 5.0                     , (float, list) ),
+                   'sampling_likelihoods' :  ( ['Planck_lite']         ,  list         ),
+                   'extra_cobaya_lkls'    :  ( {}                      ,  dict         ),
+                   'hypersphere_surface'  :  ( False                   ,  bool         ),
+                   'hypersphere_covmat'   :  ( None                    ,  str          ),
+                   'pickle_data_file'     :  ( None                    ,  str          ),
                    }
         
         for key, val in default.items():
@@ -106,7 +110,11 @@ class Parameters():
                     input_val = getattr(param, name)
                     input_type = type(input_val)
                     target_type = default[matches[0]][1]
-                    if input_type != target_type:
+                    if type(target_type) is tuple:
+                        type_bool = (input_type not in target_type)
+                    else:
+                        type_bool = (input_type != target_type)
+                    if type_bool:
                         if target_type == bool:
                             name_error += f" The type should then be 'bool'."
                         elif (self.try_cast_to_native_type(input_val, target_type) == None
@@ -122,13 +130,24 @@ class Parameters():
             input_type = type(input_val)
             target_val = val[0]
             target_type = val[1]
-            if hasattr(param, key) and input_type != target_type and target_val != None:
+            if type(target_type) is tuple:
+                type_bool = (input_type not in target_type)
+            else:
+                type_bool = (input_type != target_type)
+            if hasattr(param, key) and type_bool and target_val != None:
                 if target_type == bool:
                     type_errors.append(f"'{key}' is of type '{input_type.__name__}' and should be of type 'bool'.")
                     continue
                 casting = self.try_cast_to_native_type(input_val, target_type)
                 if casting == None or (target_type in [list, tuple, set] and input_type == str):
-                    type_errors.append(f"'{key}' is of type '{input_type.__name__}' and could not be converted to type '{target_type.__name__}'.")
+                    if type(target_type) is tuple:
+                        msg = 'types '
+                        for t in target_type:
+                            msg += f"'{t.__name__}' or "
+                        msg = msg[:-4]
+                    else:
+                        msg = f"type '{target_type.__name__}'"
+                    type_errors.append(f"'{key}' is of type '{input_type.__name__}' and could not be converted to {msg}.")
                 else:
                     setattr(self, key, casting)
         return type_errors

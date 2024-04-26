@@ -5,33 +5,37 @@ import numpy as np
 
 CONNECT_PATH  = os.path.split(os.path.realpath(os.path.dirname(__file__)))[0]
 
-def get_computed_cls(cosmo       # A computed CLASS model
-                 ):
+def get_computed_cls(cosmo,       # A computed CLASS model
+                     ell_array=[]
+                     ):
 
-    # get parameters from CLASS model
-    BA                 = cosmo.get_background()
-    conformal_age_     = BA['conf. time [Mpc]'][-1]
-    der_pars           = cosmo.get_current_derived_parameters(['ra_rec','tau_rec'])
-    cls                = cosmo.lensed_cl()
-    l_max              = len(cls['ell']) - 1
-    angular_rescaling_ = der_pars['ra_rec']/(conformal_age_ - der_pars['tau_rec'])
-    l_linstep          = 40
-    l_logstep          = 1.12
-
-    # compute necessary ells like CLASS (see transfer module in CLASS)
-    increment = max(int(2*(np.power(l_logstep,angular_rescaling_) - 1)), 1)
-    l=[0,1,2]
-
-    lin_increment = int(l_linstep*angular_rescaling_)
-    while l[-1] + increment < l_max:
-        if increment < lin_increment:
-            l.append(l[-1] + increment)
-            increment = max(int(l[-1]*(np.power(l_logstep,angular_rescaling_) - 1)), 1)
-        else:
-            l.append(l[-1] + lin_increment)
+    if len(ell_array) == 0:
+        # get parameters from CLASS model
+        BA                 = cosmo.get_background()
+        conformal_age_     = BA['conf. time [Mpc]'][-1]
+        der_pars           = cosmo.get_current_derived_parameters(['ra_rec','tau_rec'])
+        cls                = cosmo.lensed_cl()
+        l_max              = len(cls['ell']) - 1
+        angular_rescaling_ = der_pars['ra_rec']/(conformal_age_ - der_pars['tau_rec'])
+        l_linstep          = 40
+        l_logstep          = 1.12
+    
+        # compute necessary ells like CLASS (see transfer module in CLASS)
+        increment = max(int(2*(np.power(l_logstep,angular_rescaling_) - 1)), 1)
+        l=[0,1,2]
+    
+        lin_increment = int(l_linstep*angular_rescaling_)
+        while l[-1] + increment < l_max:
+            if increment < lin_increment:
+                l.append(l[-1] + increment)
+                increment = max(int(l[-1]*(np.power(l_logstep,angular_rescaling_) - 1)), 1)
+            else:
+                l.append(l[-1] + lin_increment)
+        ell = np.array(l)
+    else:
+        ell = np.array(ell_array)
 
     # create reduced dict of cls
-    ell = np.array(l)
     new_cls = {'ell':ell}
     for key, arr in cls.items():
         if key != 'ell':
@@ -227,3 +231,30 @@ def get_node_with_most_cpus():
         max_node = max(num_cpu, key=num_cpu.get)
 
     return max_node
+
+
+def get_covmat(path, param):
+    cov = np.loadtxt(path)
+    with open(path, 'r') as f:
+        header = f.readline().strip().replace('#','').replace(' ','').split(',')
+
+    params = param.parameters.keys()
+    cov_new = np.zeros((len(params), len(params)))
+    indices = []
+    for i, p in enumerate(params):
+        try:
+            indices.append(header.index(p))
+        except ValueError:
+            indices.append(None)
+            cov_new[i,i] = ((param.parameters[p][1] - param.parameters[p][0])/10)**2
+
+    for i, idx_i in enumerate(indices):
+        for j, idx_j in enumerate(indices):
+            if idx_i is not None and idx_j is not None:
+                cov_new[i,j] = cov[idx_i,idx_j]
+
+    for i, p in enumerate(params):
+        if p in param.sigma_guesses:
+            cov_new[i,i] = param.sigma_guesses[p]**2
+
+    return cov_new
