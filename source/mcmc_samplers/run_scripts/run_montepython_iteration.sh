@@ -25,7 +25,7 @@ mpirun $MPI_ARGS python montepython/MontePython.py run $MPARGS &> $output_file &
 
 job_running=true
 
-while $job_running
+while [ $job_running = true ] && [ $(ps -p $pid | wc -l) -gt 1 ]
 do
     sleep 5s
     line0=$( grep -Fn 'Scanning file' $output_file | tail -n 1 | tr ":" "\n" | head -n 1)

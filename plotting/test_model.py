@@ -10,18 +10,19 @@ Author: Andreas Nygaard (2022)
 
 """
 
+import os
+import sys
+import warnings
+import pickle as pkl
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 import numpy as np
 from scipy.interpolate import CubicSpline
 import matplotlib.pyplot as plt
 import matplotlib
-import pickle as pkl
-import sys
-import os
+
 import PlanckLogLinearScale
-
-
 
 # index of test data to use for cmb spectra
 n=0
@@ -45,40 +46,47 @@ with open(name+'/test_data.pkl', 'rb') as f:
 
 
 try:
-    model_params = test_data[0]
-    output_data     = test_data[1]
+    model_params = np.array(test_data[0])
+    output_data     = np.array(test_data[1])
 except:
     test_data = tuple(zip(*test_data))
     model_params = np.array(test_data[0])
     output_data     = np.array(test_data[1])
 
+try:    
+    with open(name+'/output_info.pkl', 'rb') as f:
+        output_info = pkl.load(f)
+    pickle_file = True
+    warnings.warn("You are using CONNECT models from an old version (before v23.6.0). Support for this is deprecated and will be removed in a later update.")
     
-with open(name+'/output_info.pkl', 'rb') as f:
-    output_info = pkl.load(f)
-
-try:
-    if output_info['normalize']['method'] == 'standardization':
-        normalize = 'standardization'
-    elif output_info['normalize']['method'] == 'log':
-        normalize = 'log'
-    elif output_info['normalize']['method'] == 'min-max':
-        normalize = 'min-max'
-    elif output_info['normalize']['method'] == 'factor':
-        normalize = 'factor'
-    else:
-        normalize = 'factor'
 except:
-    normalize = 'standardization'
+    pickle_file = False
+    output_info = eval(model.get_raw_info().numpy().decode('utf-8'))
 
-output_predict  = model.predict(model_params)
+if pickle_file:
+    try:
+        if output_info['normalize']['method'] == 'standardization':
+            normalize = 'standardization'
+        elif output_info['normalize']['method'] == 'log':
+            normalize = 'log'
+        elif output_info['normalize']['method'] == 'min-max':
+            normalize = 'min-max'
+        elif output_info['normalize']['method'] == 'factor':
+            normalize = 'factor'
+        else:
+            normalize = 'factor'
+    except:
+        normalize = 'standardization'
+
+output_predict  = model.predict(model_params, verbose=0)
 
     
-if normalize == 'standardization':
+if pickle_file and normalize == 'standardization':
     mean = output_info['normalize']['mean']
     var  = output_info['normalize']['variance']
     output_predict = output_predict * np.sqrt(var) + mean
     output_data = output_data * np.sqrt(var) + mean
-elif normalize == 'min-max':
+elif pickle_file and normalize == 'min-max':
     x_min = np.array(output_info['normalize']['x_min'])
     x_max = np.array(output_info['normalize']['x_max'])
     output_predict = output_predict * (x_max - x_min) + x_min
@@ -92,7 +100,7 @@ for output in output_info['output_Cl']:
     lim1 = output_info['interval']['Cl'][output][1]
     out_data[output]    = output_data[n][lim0:lim1]
     out_predict[output] = output_predict[n][lim0:lim1]
-    if normalize == 'log':
+    if pickle_file and normalize == 'log':
         for offset in list(reversed(output_info['normalize']['Cl'][output])):
             out_predict[output]=np.exp(out_predict[output]) - offset
             out_data[output]=np.exp(out_data[output]) - offset
@@ -104,13 +112,13 @@ if 'output_derived' in output_info.keys():
             idx = output_info['interval']['derived'][output]
             out_data[output]    = output_data[n][idx]
             out_predict[output] = output_predict[n][idx]
-            if normalize == 'log':
+            if pickle_file and normalize == 'log':
                 for offset in list(reversed(output_info['normalize']['derived']['100*theta_s'])):
                     out_predict[output]=np.exp(out_predict[output]) - offset
                     out_data[output]=np.exp(out_data[output]) - offset
 
 for output in output_info['output_Cl']:
-    if normalize == 'factor':
+    if pickle_file and normalize == 'factor':
         normalize_factor = output_info['normalize']['Cl'][output]
     plt.figure(figsize=(10,7))
     ell        = output_info['ell']
@@ -119,11 +127,11 @@ for output in output_info['output_Cl']:
     Cl_data    = out_data[output]
     Cl_pre_sp  = CubicSpline(ell,Cl_predict, bc_type = 'natural', extrapolate=True)
     Cl_dat_sp  = CubicSpline(ell,Cl_data,  bc_type = 'natural', extrapolate=True)
-    if normalize == 'factor':
+    if pickle_file and normalize == 'factor':
         plt.plot(ll, Cl_dat_sp(ll)/normalize_factor,'k-',lw=3,label='CLASS')
     else:
         plt.plot(ll, Cl_dat_sp(ll),'k-',lw=3,label='CLASS')
-    if normalize == 'factor':
+    if pickle_file and normalize == 'factor':
         plt.plot(ll, Cl_pre_sp(ll)/normalize_factor,'r-',lw=3,label='CONNECT')
     else:
         plt.plot(ll, Cl_pre_sp(ll),'r-',lw=3,label='CONNECT')
@@ -136,14 +144,14 @@ for output in output_info['output_Cl']:
 if 'output_derived' in output_info.keys(): 
     for output in output_info['output_derived']:
         if output != '100*theta_s':
-            if normalize == 'factor':
+            if pickle_file and normalize == 'factor':
                 normalize_factor = output_info['normalize']['derived'][output]
             print(output)
-            if normalize == 'factor':
+            if pickle_file and normalize == 'factor':
                 print('CLASS:',out_data[output]/normalize_factor)
             else:
                 print('CLASS:',out_data[output])
-            if normalize == 'factor':
+            if pickle_file and normalize == 'factor':
                 print('CONNECT:',out_predict[output]/normalize_factor)
             else:
                 print('CONNECT:',out_predict[output])
@@ -163,23 +171,29 @@ def get_error(path,spectrum):
 
     with open(path + '/test_data.pkl', 'rb') as f:
         test_data = pkl.load(f)
-    with open(path + '/output_info.pkl', 'rb') as f:
-        output_info = pkl.load(f)
+    try:
+        with open(path + '/output_info.pkl', 'rb') as f:
+            output_info = pkl.load(f)
+        pickle_file = True
+    except:
+        pickle_file = False
+        output_info = eval(model.get_raw_info().numpy().decode('utf-8'))
 
     ell = output_info['ell']
-    try:
-        if output_info['normalize']['method'] == 'standardization':
+    if pickle_file:
+        try:
+            if output_info['normalize']['method'] == 'standardization':
+                normalize = 'standardization'
+            elif output_info['normalize']['method'] == 'log':
+                normalize = 'log'
+            elif output_info['normalize']['method'] == 'min-max':
+                normalize = 'min-max'
+            elif output_info['normalize']['method'] == 'factor':
+                normalize = 'factor'
+            else:
+                normalize = 'factor'
+        except:
             normalize = 'standardization'
-        elif output_info['normalize']['method'] == 'log':
-            normalize = 'log'
-        elif output_info['normalize']['method'] == 'min-max':
-            normalize = 'min-max'
-        elif output_info['normalize']['method'] == 'factor':
-            normalize = 'factor'
-        else:
-            normalize = 'factor'
-    except:
-        normalize = 'standardization'
             
     try:
         model_params = test_data[0]
@@ -193,12 +207,12 @@ def get_error(path,spectrum):
     v = tf.constant(model_params)
     Cls_predict = model(v).numpy()
 
-    if normalize == 'standardization':
+    if pickle_file and normalize == 'standardization':
         mean = output_info['normalize']['mean']
         var  = output_info['normalize']['variance']
         Cls_predict = Cls_predict * np.sqrt(var) + mean
         Cls_data = Cls_data * np.sqrt(var) + mean
-    elif normalize == 'min-max':
+    elif pickle_file and normalize == 'min-max':
         x_min = np.array(output_info['normalize']['x_min'])
         x_max = np.array(output_info['normalize']['x_max'])
         Cls_predict = Cls_predict * (x_max - x_min) + x_min
@@ -209,9 +223,9 @@ def get_error(path,spectrum):
 
     errors = []
     for j, (cls_d, cls_p) in enumerate(zip(Cls_data, Cls_predict)):
-        if normalize == 'factor':
+        if pickle_file and normalize == 'factor':
             err = ((np.array(cls_d[lim0:lim1])-np.array(cls_p[lim0:lim1]))/output_info['normalize']['Cl'][spectrum])/rms(np.array(cls_d[lim0:lim1]))
-        elif normalize == 'log':
+        elif pickle_file and normalize == 'log':
             clsp = cls_p[lim0:lim1]
             clsd = cls_d[lim0:lim1]
             for offset in list(reversed(output_info['normalize']['Cl'][spectrum])):

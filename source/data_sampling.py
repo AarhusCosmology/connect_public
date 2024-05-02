@@ -2,17 +2,15 @@ import os
 import subprocess as sp
 import fileinput
 import shutil
-import pickle as pkl
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import numpy as np
 
-from .lhc import LatinHypercubeSampler
 from .join_output import CreateSingleDataFile
 from .train_network import Training
 from .default_module import Parameters
 from .tools import create_output_folders, join_data_files, combine_iterations_data 
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class Sampling():
     def __init__(self, param_file, CONNECT_PATH):
@@ -20,15 +18,22 @@ class Sampling():
         self.param = Parameters(param_file)
         self.CONNECT_PATH = CONNECT_PATH
         self.N_tasks, self.N_cpus_per_task = np.int64(sp.run(['./source/shell_scripts/number_of_tasks.sh'], stdout=sp.PIPE).stdout.decode('utf-8').split(','))
-        if self.param.sampling == 'lhc':
+        if self.param.sampling in ['lhc','hypersphere','pickle']:
             self.data_path = f'data/{self.param.jobname}/N-{self.param.N}'
         elif self.param.sampling == 'iterative':
             self.data_path = f'data/{self.param.jobname}'
 
+    def create_hypersphere_data(self):
+        self.copy_param_file()
+        self.call_calc_models(sampling='hypersphere')
+
     def create_lhc_data(self):
-        self.latin_hypercube_sampling()
         self.copy_param_file()
         self.call_calc_models(sampling='lhc')
+
+    def create_pickle_data(self):
+        self.copy_param_file()
+        self.call_calc_models(sampling='pickle')
 
     def create_iterative_data(self):
         exec(f'from source.mcmc_samplers.{self.param.mcmc_sampler} import {self.param.mcmc_sampler}')
@@ -88,12 +93,11 @@ class Sampling():
                 mcmc.Gelman_Rubin_log_ini()
                 print('No initial model given', flush=True)
                 print(f'Calculating {self.param.N} initial CLASS models', flush=True)
-                self.latin_hypercube_sampling()
-                self.call_calc_models(sampling='lhc')
+                self.call_calc_models(sampling=self.param.initial_sampling)
                 print('Training neural network', flush=True)
-                model = self.train_neural_network(sampling='lhc',
-                                              output_file=os.path.join(self.data_path, 
-                                                                       f'N-{self.param.N}/training.log'))
+                model = self.train_neural_network(sampling=self.param.initial_sampling,
+                                                  output_file=os.path.join(self.data_path, 
+                                                                           f'N-{self.param.N}/training.log'))
             else:
                 model = self.param.initial_model
             print(f'Initial model is {model}', flush=True)
@@ -121,7 +125,7 @@ class Sampling():
             if i > 1 and not kill_iteration:
                 kill_iteration = mcmc.compare_iterations(i)
             if i > int(not self.param.keep_first_iteration) + 1 and i <= i_converged:
-                N_accepted=mcmc.discard_oversampled_points(i)
+                N_accepted = mcmc.discard_oversampled_points(i)
                 N_in_data_set = mcmc.get_number_of_data_points(i-1) + N_accepted
                 print(f"Accepted {N_accepted} points out of {N_keep}", flush=True)
             else:
@@ -175,19 +179,14 @@ class Sampling():
                 f.write(f"\njobname = '{self.param.jobname}'")
         self.param.param_file = self.CONNECT_PATH+'/'+self.data_path+'/log_connect.param'
 
-    def latin_hypercube_sampling(self):
-        if not os.path.isfile(self.CONNECT_PATH+f'/data/lhc_samples/{len(self.param.parameters.keys())}_{self.param.N}.sample'):
-            lhc = LatinHypercubeSampler(self.param)
-            lhc.run(self.CONNECT_PATH)
-
     def call_calc_models(self, sampling='lhc'):
         os.environ["export OMP_NUM_THREADS"] = str({self.N_cpus_per_task})
         os.environ["PMIX_MCA_gds"] = "hash"
-        sp.Popen(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split()).wait()
+        sp.check_call(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split())
         os.environ["export OMP_NUM_THREADS"] = "1"
 
     def train_neural_network(self, sampling='lhc', output_file=None):
-        if sampling == 'lhc':
+        if sampling in ['lhc','hypersphere','pickle']:
             folder = ''
         elif sampling == 'iterative':
             i = max([int(f.split('number_')[-1]) for f in os.listdir(os.path.join(self.CONNECT_PATH, self.data_path)) if f.startswith('number')])
