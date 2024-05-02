@@ -108,7 +108,7 @@ activation_function  = 'relu'             # activation function used in all hidd
 normalization_method = 'standardization'  # normalisation method to use on output data
 ```
 
-There are two different ways of gathering training data, Latin hypercube sampling and the iterative approach described in [arXiv:2205.15726]. This is chosen in the parameter file as either ```sampling = 'lhc'```or ```sampling = 'iterative'```. Some additional parameters are available for the iterative sampling (see ```input/example.param```). The sampling parameters include the following:
+There are different ways of gathering training data, Latin hypercube sampling, hypersphere sampling described in [arXiv:2405.XXXXX], and the iterative approach described in [arXiv:2205.15726]. This is chosen in the parameter file as either ```sampling = 'lhc'```, ```sampling = 'hypersphere'```, or ```sampling = 'iterative'```. It is also possible to load an existing set of training data through a pickle file by setting ```sampling = 'pickle'```. Some additional parameters are available for the iterative sampling (see ```input/example.param```). The sampling parameters include the following:
 ```
 parameters           = {'H0'        : [64,   76  ],   # parameters to sample in given as a dictionary with **min** and **max** values in a list
                        'omega_cdm'  : [0.10, 0.14]}
@@ -124,12 +124,13 @@ z_th_list            = [0.0, 0.3, 0.7]                # list of z-values to comp
 extra_output         = {'rs_drag': 'cosmo.rs_drag()'} # completely custom output. Name of the output is the key and the value is a string of code that outputs either a float, an int or a 1D array
 output_derived       = ['YHe', 'sigma_8']             # which derived parameters to emulate
 N                    = 1e+4                           # how many data points to sample using a Latin hypercube (initial step for iterative sampling)
-sampling             = 'iterative'                    # sampling method - 'lhc' or 'iterative'
+sampling             = 'iterative'                    # sampling method - 'lhc', 'hypersphere', 'pickle', or 'iterative'
 
 ### Additional parameters for iterative sampling ###
 N_max_points         = 2e+4                           # maximum number of points to sample from each iteration
 mcmc_sampler         = 'montepython'                  # MCMC code to use in each iteration - 'montepython' or 'cobaya'
 initial_model        = None                           # initial model to start from instead of using a Latin hypercube
+initial_sampling     = 'hypersphere'                  # initial configuration of training data - 'lhc', 'hypersphere' or 'pickle'
 mcmc_tol             = 0.01                           # convergence criterion for R-1 values in MCMC runs in each iteration
 iter_tol             = 0.1                            # convergence criterion for R-1 values between data from two consecutive iterations
 temperature          = 5.0                            # sampling temperature during MCMC - if a list is provided, additional iterations with annealing will be done
@@ -139,8 +140,15 @@ bestfit_guesses      = {'H0' : 67.7}                  # bestfit guesses to be us
 sigma_guesses        = {'H0' : 0.5}                   # sigma guesses to be used for proposal distribution by the MCMC sampler (optional)
 log_priors           = ['omega_cdm']                  # which parameters to sample with logarithmic priors (optional)
 keep_first_iteration = False                          # whether or not to keep data from the first iteration - usually bad
-extra_cobaya_lkls    = {}                             # additional likelihoods to sample with when using cobaya as MCMC samler
 resume_iterations    = False                          # whether or not to resume a previous run if somthing failed or additional iterations are needed
+extra_cobaya_lkls    = {}                             # additional likelihoods to sample with when using cobaya as MCMC samler
+
+### Additional parameters for hypersphere sampling (when either 'sampling' or 'initial_sampling' is 'hypersphere') ###
+hypersphere_surface  = False                          # Whether or not to just sample from the surface of the hypersphere
+hypersphere_covmat   = None                           # Path to covariance matrix to align hypersphere along axes of correlation - same format as MontePython
+
+### Additional parameters for reading pickled data (when either 'sampling' or 'initial_sampling' is 'pickle') ###
+pickle_data_file     = None                           # Path to pickle file containing an (N,M)-dimensional array where M is the number of parameters and N is the number og points
 ```
 
 The saving parameters are used for naming the outputted neural network models along with the folder for training data. The parameters include the following:
@@ -228,7 +236,7 @@ The indices for the different types of output is stored in the dictionary ```inf
 
 The ```info_dict``` in the above code snippet is a ```DictWrapper``` object that functions like a dictionary. All values are TensorFlow variables and all strings (except keys) are byte strings. The byte strings can be converted using ```<byte string>.decode('utf-8')```. If one wants a pure python dictionary with regular types (```list```, ```float```, ```str```), then the same info dictionary can be loaded from a raw string version:
 ```
-info_dict = eval(model.get_raw_info().decode('utf-8'))
+info_dict = eval(model.get_raw_info().numpy().decode('utf-8'))
 ```
 This ```info_dict``` is now useable without having to change any types.
 

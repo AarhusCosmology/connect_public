@@ -13,8 +13,7 @@ class Dense_model(tf.keras.Model):
                  output_unnormaliser=lambda x: x,
                  num_hidden_layers=4,
                  dropout=False,
-                 batch_norm=False,
-                 output_info=0):
+                 batch_norm=False):
 
         # Inherit from tf.keras.Model
         super(Dense_model, self).__init__()

@@ -395,11 +395,6 @@ class Training():
 
 
     def train_model(self, epochs=None, output_file=None):
-        if self.param.output_activation:
-            out_act = self.output_info
-        else:
-            out_act = 0
-
         if epochs != None:
             self.param.epochs = int(epochs)
 
@@ -425,8 +420,7 @@ class Training():
                                      input_normaliser=self.input_normaliser,
                                      output_unnormaliser=self.unnormalise,
                                      activation=self.param.activation_function,
-                                     num_hidden_layers=self.param.N_hidden_layers,
-                                     output_info=out_act)
+                                     num_hidden_layers=self.param.N_hidden_layers)
             
             self.model.compile(optimizer=adam,
                                loss=self.loss_fun)
