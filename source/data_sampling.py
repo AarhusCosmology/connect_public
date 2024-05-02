@@ -3,6 +3,7 @@ import subprocess as sp
 import fileinput
 import shutil
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import numpy as np
 
 from .join_output import CreateSingleDataFile
@@ -10,7 +11,6 @@ from .train_network import Training
 from .default_module import Parameters
 from .tools import create_output_folders, join_data_files, combine_iterations_data 
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class Sampling():
     def __init__(self, param_file, CONNECT_PATH):
@@ -182,7 +182,7 @@ class Sampling():
     def call_calc_models(self, sampling='lhc'):
         os.environ["export OMP_NUM_THREADS"] = str({self.N_cpus_per_task})
         os.environ["PMIX_MCA_gds"] = "hash"
-        sp.Popen(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split()).wait()
+        sp.check_call(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split())
         os.environ["export OMP_NUM_THREADS"] = "1"
 
     def train_neural_network(self, sampling='lhc', output_file=None):

@@ -9,12 +9,13 @@ def get_computed_cls(cosmo,       # A computed CLASS model
                      ell_array=[]
                      ):
 
+    cls = cosmo.lensed_cl()
+
     if len(ell_array) == 0:
         # get parameters from CLASS model
         BA                 = cosmo.get_background()
         conformal_age_     = BA['conf. time [Mpc]'][-1]
         der_pars           = cosmo.get_current_derived_parameters(['ra_rec','tau_rec'])
-        cls                = cosmo.lensed_cl()
         l_max              = len(cls['ell']) - 1
         angular_rescaling_ = der_pars['ra_rec']/(conformal_age_ - der_pars['tau_rec'])
         l_linstep          = 40

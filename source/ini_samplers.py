@@ -14,13 +14,14 @@ class LatinHypercubeSampler():
         self.parameters = param.parameters
         self.param_names = self.parameters.keys()
         self.d = len(self.parameters)
+        self.log_priors = param.log_priors        
 
     def run(self):
         sampler = qmc.LatinHypercube(d=self.d)
         sample = sampler.random(n=self.N)
         data = sample.T
         for i, name in enumerate(self.param_names):
-            if name in param.log_priors:
+            if name in self.log_priors:
                 data[i] *= np.log10(self.parameters[name][1]) - np.log10(self.parameters[name][0])
                 data[i] += np.log10(self.parameters[name][0])
                 data[i] = np.power(10.,data[i])
@@ -45,9 +46,9 @@ class HypersphereSampler():
         bestfit_guesses = []
         for name in self.parameters:
             try:
-                self.bestfit_guesses.append(param.bestfit_guesses[name])
+                bestfit_guesses.append(param.bestfit_guesses[name])
             except:
-                self.bestfit_guesses.append((param.parameters[name][0]+param.parameters[name][1])/2)
+                bestfit_guesses.append((param.parameters[name][0]+param.parameters[name][1])/2)
         if type(param.temperature) in [int, float]:
             fac = (param.temperature * 2)**2 # This factor is multiplied on the covmat and ensures the boundary of the
         else:                                # hyperellipsoid to be at T*sigma, where T is the sampling temperature.
@@ -77,7 +78,7 @@ class HypersphereSampler():
     
     def gaussian_hypersphere(self, M):
         # Sample D vectors of N Gaussian coordinates
-        samples = self.rng.normal(loc=0.0, scale=1.0, size=self.N*self.d).reshape((self.d, M))
+        samples = self.rng.normal(loc=0.0, scale=1.0, size=M*self.d).reshape((self.d, M))
         # Normalise all distances (radii) to 1
         radii = np.sqrt(np.sum(samples*samples, axis=0))
         samples = samples/radii
@@ -91,7 +92,7 @@ class HypersphereSampler():
     def get_transformed_hypersphere_vector_with_bbox(self):
         while True:
             buffer = self.gaussian_hypersphere(self.buffer_size)
-            if hasattr(self,L):
+            if hasattr(self,'L'):
                 buffer = self.L@buffer
             selected_points = self.points_in_bbox(buffer, self.bbox).T
             for c in selected_points:
@@ -99,8 +100,8 @@ class HypersphereSampler():
 
     def run(self):
         data = np.array(list(itertools.islice(self.get_transformed_hypersphere_vector_with_bbox(),self.N)))
-        data += bounds[:,1]
-        return data.T
+        data += self.bounds[:,1]
+        return data
 
 class PickleSampler():
     def __init__(self, param):

@@ -3,7 +3,9 @@ import sys
 import time
 import itertools
 import signal
+import traceback
 
+os.environ['UCX_LOG_LEVEL'] = 'error'
 param_file   = sys.argv[1]
 CONNECT_PATH = sys.argv[2]
 sampling     = sys.argv[3]
@@ -16,7 +18,6 @@ from mpi4py import MPI
 
 from source.default_module import Parameters
 from source.tools import get_computed_cls, get_z_idx, get_covmat
-
 
 param_file = os.path.join(CONNECT_PATH, param_file)
 param        = Parameters(param_file)
@@ -37,6 +38,15 @@ rank = comm.Get_rank()
 N_slaves = comm.Get_size()-1
 
 get_slave = itertools.cycle(range(1,N_slaves+1))
+
+def excepthook(etype, value, tb):
+    if tb is not None and value not in [None, '']:
+        print('Traceback (most recent call last):', file=sys.stderr)
+        traceback.print_tb(tb, file=sys.stderr)
+        print(f'{etype.__name__}: {value.args[0]}', file=sys.stderr)
+    comm.Abort(1)
+sys.excepthook = excepthook
+
 
 
 if len(param.output_Cl) > 0:
@@ -246,7 +256,7 @@ else:
             success = False
             print(e.message)
         except Exception as e:
-            if e == 'timeout':
+            if str(e) == 'timeout':
                 print('The following model took too long to complete:', flush=True)
                 print(params, flush=True)
                 success = False
