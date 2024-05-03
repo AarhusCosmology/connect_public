@@ -11,7 +11,7 @@ NO='\033[0;31mno\033[0m'
 YES='\033[0;32myes\033[0m'
 
 echo -e "--------------------------------------------------------------\n\n"
-cat source/logo_colour.txt
+cat source/assets/logo_colour.txt
 echo -e "\n--------------------------------------------------------------\n"
 
 echo -e "Running setup script for connect\n"
@@ -254,6 +254,8 @@ then
     pip install mpi4py==3.1.4
     pip install tensorflow==2.10
     pip install tensorflow-probability==0.18.0
+    pip install sshkeyboard
+    pip install playsound
     if [ $Ans2_1 == $YES ]
     then
 	pip install pymultinest==2.12
@@ -392,6 +394,6 @@ then
     echo "--> ...done!"
 fi
 
-python -c "from source.animate import play; play()"
+python -c "from source.assets.animate import play; play()"
 
 echo -e "\nSetup is all done!\n"

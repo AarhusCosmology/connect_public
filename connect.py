@@ -130,5 +130,16 @@ if keyword == 'train':
 #####################################
 
 if keyword == 'animate':
-    from source.animate import play
+    from source.assets.animate import play
     play()
+
+
+#####################################
+# _________ procrastinate _________ #
+#####################################
+
+if keyword == 'procrastinate':
+    import base64
+    with open('source/assets/surprise.txt','r') as f:
+        obfuscated_code = f.readlines()[0]
+    exec(base64.b85decode(obfuscated_code.encode('utf-8')))
