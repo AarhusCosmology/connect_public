@@ -30,7 +30,17 @@ do
     read create_env
 done
 
-env_name="ConnectEnvironment"
+if [ $create_env == "yes" ]
+then
+    echo "Enter name of conda environment to create, or leave blank to use"
+    echo "default name 'ConnectEnvironment':"
+    read env_name
+    if [ -z $env_name ]
+    then
+	env_name="ConnectEnvironment"
+    fi
+fi
+
 if ! [ $create_env == "yes" ]
 then
     echo "Enter name of conda environment to use, or leave blank to not use"
@@ -56,19 +66,6 @@ then
     read clik_path
 fi
 
-while [ -z $class ]
-do
-    echo "Do you want to install CLASS in the environment? [yes, no]"
-    read class
-done
-
-if [ $class == "yes" ]
-then
-    echo "If you already have a CLASS installation, enter the absolute"
-    echo "path. Otherwise, leave blank and CLASS repo will be cloned:"
-    read class_path
-fi
-
 while [ -z $cobaya ]
 do
     echo "Do you want to install Cobaya in the environment? [yes, no]"
@@ -82,6 +79,19 @@ then
     read clik_path
 fi
 
+while [ -z $class ]
+do
+    echo "Do you want to install CLASS in the environment? [yes, no]"
+    read class
+done
+
+if [ $class == "yes" ]
+then
+    echo "If you already have a CLASS installation, enter the absolute"
+    echo "path. Otherwise, leave blank and CLASS repo will be cloned:"
+    read class_path
+fi
+
 while [ -z $camb ]
 do
     echo "Do you want to install CAMB in the environment? [yes, no]"
@@ -93,6 +103,7 @@ echo -e "\n--------------------------------------------------------------\n"
 if [ $create_env == "yes" ]
 then
     Ans1=$YES
+    env_name_string="\n    Name of conda environment:\n    \033[0;34m${env_name}\033[0m"
 else
     Ans1=$NO
 fi
@@ -131,23 +142,10 @@ else
     Ans2=$NO
 fi
 
-if [ $class == "yes" ]
-then
-    Ans3=$YES
-    if ! [ -z $class_path ]
-    then
-	path_class="\n    Path to CLASS:\n    \033[0;34m${class_path}\033[0m"
-    else
-	path_class="\n    Cloning CLASS repo to \033[0;34mconnect/resources\033[0m"
-    fi
-else
-    Ans3=$NO
-fi
-
 if [ $cobaya == "yes" ]
 then
-    Ans4=$YES
-    if ! [ $Ans4 == $YES ]
+    Ans3=$YES
+    if ! [ $Ans2 == $YES ]
     then
 	if ! [ -z $clik_path ]
 	then
@@ -155,6 +153,19 @@ then
 	else
 	    clik_cobaya="\n    Downloading clik to \033[0;34mconnect/resources\033[0m"
 	fi
+    fi
+else
+    Ans3=$NO
+fi
+
+if [ $class == "yes" ]
+then
+    Ans4=$YES
+    if ! [ -z $class_path ]
+    then
+	path_class="\n    Path to CLASS:\n    \033[0;34m${class_path}\033[0m"
+    else
+	path_class="\n    Cloning CLASS repo to \033[0;34mconnect/resources\033[0m"
     fi
 else
     Ans4=$NO
@@ -168,11 +179,11 @@ else
 fi
 
 echo -e "You have selected the following:\n"
-echo -e "Create conda environment             :                   ${Ans1}"
+echo -e "Create conda environment             :                   ${Ans1}${env_name_string}"
 echo -e "Setup link to Monte Python           :                   ${Ans2}${path_mp}${clik_mp}"
 echo -e "Install MultiNest and PolyChord      :                   ${Ans2_1}"
-echo -e "Install CLASS                        :                   ${Ans3}${path_class}"
-echo -e "Install Cobaya                       :                   ${Ans4}${clik_cobaya}"
+echo -e "Install Cobaya                       :                   ${Ans3}${clik_cobaya}"
+echo -e "Install CLASS                        :                   ${Ans4}${path_class}"
 echo -e "Install CAMB                         :                   ${Ans5}"
 
 echo -e "\n--------------------------------------------------------------\n"
@@ -236,15 +247,17 @@ function install_clik {
 }
 
 
-module load gcc openmpi cmake
+source ~/.bashrc 2> /dev/null
+source ~/.bash_profile 2> /dev/null
+source "$(conda info | grep -i 'base environment' | awk '{for(i=1;i<=NF;i++) if($i ~ /\//) print $i}')/etc/profile.d/conda.sh"
+module load gcc openmpi cmake 2> /dev/null
 conda init
-source ~/.bashrc
 
 
 if [ $Ans1 == $YES ]
 then
     echo "--> Creating Conda environment, this will take a few minutes..."
-    conda clean --index-cache
+    conda clean --index-cache -y
     # Remove ConnectEnvironment if it exists
     conda env remove -y --name $env_name
     conda create -y --name $env_name python=3.10 cython=3.0 scipy=1.11 numpy=1.26 astropy=5.1 pip=23.2 numexpr=2.8 pandas=2.0
@@ -256,7 +269,7 @@ then
     pip install tensorflow-probability==0.18.0
     pip install sshkeyboard
     pip install playsound
-    if [ $Ans2_1 == $YES ]
+    if [ "$Ans2_1" == "$YES" ]
     then
 	pip install pymultinest==2.12
 	pip install git+https://github.com/PolyChord/PolyChordLite@master
@@ -365,7 +378,8 @@ then
 	connect_path=$PWD
 	cd $class_path
 	make clean
-	make
+	make -j
+	cd $connect_path
 	echo "--> ...done!"
     else
 	echo "--> Cloning CLASS into resources..."
@@ -377,8 +391,8 @@ then
 	echo "--> Building classy wrapper..."
 	sed -i 's/cpdef/cdef/g' python/classy.pyx
 	make clean
-	make
-	cd ../..
+	make -j
+	cd $connect_path
 	echo "--> ...done!"
     fi
 fi
