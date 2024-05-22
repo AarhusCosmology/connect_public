@@ -50,7 +50,7 @@ if keyword == 'create':
 
     if not os.path.isdir(path):
         os.mkdir(path)
-    with open(os.path.join(CONNECT_PATH,'source/logo_colour.txt'),'r') as f:
+    with open(os.path.join(CONNECT_PATH,'source/assets/logo_colour.txt'),'r') as f:
         log_string = '-'*62+'\n\n\n' +                        \
                      f.read()+'\n' +                          \
                      '-'*62+'\n\n' +                          \
