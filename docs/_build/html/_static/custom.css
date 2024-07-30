@@ -1,0 +1,23 @@
+.cosmoslider-frame {
+    position: absolute;
+    border: none;
+    width: -moz-calc(100vw - 300px);
+    width: -webkit-calc(100vw - 300px);
+    width: -o-calc(100vw - 300px);
+    width: calc(100vw - 300px);
+    height: 100vh;
+    left: 300px;
+    top: 0;
+}
+    
+@media (max-width: 768px) {
+    .cosmoslider-frame {
+	width: 100vw;
+	left: 0;
+	top: 60px;
+	height: -moz-calc(100vh - 60px);
+	height: -webkit-calc(100vh - 60px);
+	height: -o-calc(100vh - 60px);
+	height: calc(100vh - 60px);
+    }
+}
