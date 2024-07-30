@@ -1,0 +1,11 @@
+{%- extends "!breadcrumbs.html" %}
+
+{% block breadcrumbs_aside %}
+  <li class="wy-breadcrumbs-aside">
+    {%- if hasdoc(pagename) and display_vcs_links %}
+      {%- if display_github %}
+    <a href="https://github.com/AarhusCosmology/connect_public" class="fa fa-github"> {{ _('View on GitHub') }}</a>
+      {%- endif %}
+    {%- endif %}
+  </li>
+{% endblock %}

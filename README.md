@@ -12,8 +12,9 @@
 [Installation and setup](#1-installation-and-setup) •
 [Usage](#2-usage) •
 [Example of workflow](#3-example-of-workflow---λcdm) • 
-[Support](#4-support) • 
-[Citation](#5-citation)
+[Documentation](#4-documentation) • 
+[Support](#5-support) • 
+[Citation](#6-citation)
 
 </div>
 
@@ -30,8 +31,9 @@ CONNECT is a framework for emulating cosmological parameters using neural networ
     + [2.2.3 Using a trained neural network on its own](#223-using-a-trained-neural-network-on-its-own)
 - [3. Example of workflow - ΛCDM](#3-example-of-workflow---λcdm)
   * [3.1 Useful commands for monitoring the iterative sampling](#31-useful-commands-for-monitoring-the-iterative-sampling)
-- [4. Support](#4-support)
-- [5. Citation](#5-citation)
+- [4. Documentation](#4-documentation)
+- [5. Support](#5-support)
+- [6. Citation](#6-citation)
 
 ## 1. Installation and setup
 In order to use CONNECT, simply clone the repository into a folder on your local computer or a cluster
@@ -323,10 +325,13 @@ When training the neural network, the progress can be monitored in
 cat data/<jobname>/number_<iteration>/training.log
 ```
 
-## 4. Support
+## 4. Documentation
+The documentation is available [here](https://aarhuscosmology.github.io/connect_public) along with a web-based application for emulating a CMB power spectrum.
+
+## 5. Support
 CONNECT is a work in progress and will be updated continuously. Please feel free to write me at andreas@phys.au.dk regarding any problems you might encounter (or just to get started properly). 
 
 You can also create an issue if you encounter a bug or have ideas for new features.
 
-## 5. Citation
+## 6. Citation
 Please cite the paper [arXiv:2205.15726](https://arxiv.org/abs/2205.15726) if using CONNECT for publications. 
