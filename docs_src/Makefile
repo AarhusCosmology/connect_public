@@ -27,3 +27,5 @@ cleanstatic:
 # Modify the html target to depend on cleanstatic
 html: cleanstatic
 	@$(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	rm -rf ../docs
+	mv "$(BUILDDIR)/html" ../docs
