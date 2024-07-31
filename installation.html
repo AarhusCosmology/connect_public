@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Installation and setup &mdash; CONNECT 24.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=aeb54688"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Usage" href="usage.html" />
+    <link rel="prev" title="Welcome to CONNECT’s documentation!" href="index.html" />
+    <link href="_static/custom.css" rel="stylesheet" type="text/css">
+    <script src="_static/custom.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            CONNECT
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation and setup</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#manual-setup">Manual setup</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflow.html">Example of workflow - ΛCDM</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cosmoslider.html">CosmoSlider</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">CONNECT</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Installation and setup</li>
+  <li class="wy-breadcrumbs-aside">
+    <a href="https://github.com/AarhusCosmology/connect_public" class="fa fa-github"> View on GitHub</a>
+  </li>
+
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="installation-and-setup">
+<h1>Installation and setup<a class="headerlink" href="#installation-and-setup" title="Link to this heading"></a></h1>
+<p>In order to use CONNECT, simply clone the repository into a folder on your local computer or a cluster:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/AarhusCosmology/connect_public.git
+</pre></div>
+</div>
+<p>The setup and installations are taken care of by the <code class="docutils literal notranslate"><span class="pre">setup.sh</span></code> script which ensures that compatible versions of all dependencies are installed in a conda environment. Simply run the following from within the repository:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>./setup.sh
+</pre></div>
+</div>
+<p>You will be presented with some yes/no questions and some requests for paths of other codes. If you do not have any previous codes you wish to link, you can have CONNECT install all of the dependencies by answering yes to all questions and leaving requests for paths blank (follow the instructions on the screen). This creates a conda environment called <code class="docutils literal notranslate"><span class="pre">ConnectEnvironment</span></code>, where all dependencies are installed. This requires <code class="docutils literal notranslate"><span class="pre">anaconda</span></code>, <code class="docutils literal notranslate"><span class="pre">gcc</span></code>, <code class="docutils literal notranslate"><span class="pre">openmpi</span></code> and <code class="docutils literal notranslate"><span class="pre">cmake</span></code> and is tested for the following versions:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>anaconda = 4.10.1
+gcc      = 12.2.0
+openmpi  = 4.0.3
+cmake    = 3.24.3
+</pre></div>
+</div>
+<p>Other versions may work just as well but have not been tested. If you find that specific versions do not work, please inform me on the email address further down.</p>
+<p>Running the <code class="docutils literal notranslate"><span class="pre">setup.sh</span></code> script on a cluster with the <a class="reference external" href="https://modules.readthedocs.io">The Environment Modules package</a> automatically loads <code class="docutils literal notranslate"><span class="pre">gcc</span></code>, <code class="docutils literal notranslate"><span class="pre">openmpi</span></code> and <code class="docutils literal notranslate"><span class="pre">cmake</span></code>, but <code class="docutils literal notranslate"><span class="pre">anaconda</span></code> needs to be loaded before running the script. If you are running locally or on a cluster without <a class="reference external" href="https://modules.readthedocs.io">The Environment Modules package</a>, all of the above need to be available from the start. You can check this with the following set of commands:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>--version
+gcc<span class="w"> </span>--version
+mpirun<span class="w"> </span>--version
+cmake<span class="w"> </span>--version
+</pre></div>
+</div>
+<section id="manual-setup">
+<h2>Manual setup<a class="headerlink" href="#manual-setup" title="Link to this heading"></a></h2>
+<p>If one does not wish to use the <code class="docutils literal notranslate"><span class="pre">setup.sh</span></code> script, the setup can be performed manually. The code depends on <a class="reference external" href="https://github.com/lesgourg/class_public">Class</a> and either <a class="reference external" href="https://github.com/brinckmann/montepython_public">Monte Python</a> or <a class="reference external" href="https://github.com/CobayaSampler/cobaya">Cobaya</a> (if iterative sampling is to be used - see <a class="reference external" href="https://arxiv.org/abs/2205.15726">arXiv:2205.15726</a>), so one needs functioning installations of these. One also requires the Planck 2018 likelihood installed. The paths to <code class="docutils literal notranslate"><span class="pre">connect_public/mcmc_plugin</span></code>, Monte Python, and the Planck likelihood should be set in <code class="docutils literal notranslate"><span class="pre">mcmc_plugin/connect.conf</span></code> in order for <code class="docutils literal notranslate"><span class="pre">Monte</span> <span class="pre">Python</span></code> to use a trained CONNECT model instead of Class. <code class="docutils literal notranslate"><span class="pre">mcmc_plugin/connect.conf</span></code> should look something like:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">path</span><span class="p">[</span><span class="s1">&#39;cosmo&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&lt;path to connect_public&gt;/mcmc_plugin&#39;</span>
+<span class="n">path</span><span class="p">[</span><span class="s1">&#39;clik&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&lt;path to planck2018&gt;/code/plc_3.0/plc-3.01/&#39;</span>
+<span class="n">path</span><span class="p">[</span><span class="s1">&#39;montepython&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&lt;path to montepython_public&gt;&#39;</span>
+</pre></div>
+</div>
+<p>The code is dependent on <code class="docutils literal notranslate"><span class="pre">TensorFlow</span> <span class="pre">&gt;=</span> <span class="pre">v2.0</span></code> and <code class="docutils literal notranslate"><span class="pre">mpi4py</span></code>, so these should be installed (pip or conda) within the environment to use with the code. If using an environment when running CONNECT, remember to build Class within this environment. Additional dependencies include:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>cython
+matplotlib
+scipy
+numpy
+</pre></div>
+</div>
+<p>along with all dependencies for Monte Python, Cobaya, Class, and the Planck 2018 likelihood.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to CONNECT’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="usage.html" class="btn btn-neutral float-right" title="Usage" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Andreas Nygaard.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

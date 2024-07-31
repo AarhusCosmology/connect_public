@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Example of workflow - ΛCDM &mdash; CONNECT 24.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=aeb54688"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Support" href="support.html" />
+    <link rel="prev" title="Usage" href="usage.html" />
+    <link href="_static/custom.css" rel="stylesheet" type="text/css">
+    <script src="_static/custom.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            CONNECT
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation and setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Example of workflow - ΛCDM</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#useful-commands-for-monitoring-the-iterative-sampling">Useful commands for monitoring the iterative sampling</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cosmoslider.html">CosmoSlider</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">CONNECT</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Example of workflow - ΛCDM</li>
+  <li class="wy-breadcrumbs-aside">
+    <a href="https://github.com/AarhusCosmology/connect_public" class="fa fa-github"> View on GitHub</a>
+  </li>
+
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="example-of-workflow-cdm">
+<h1>Example of workflow - ΛCDM<a class="headerlink" href="#example-of-workflow-cdm" title="Link to this heading"></a></h1>
+<p>Start by cloning CONNECT</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/AarhusCosmology/connect_public.git
+</pre></div>
+</div>
+<p>Then run the setup script from within the repository</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>connect_public
+./setup.sh
+</pre></div>
+</div>
+<p>Answer yes to all questions and leave paths as blank.</p>
+<p>Your CONNECT installation is now ready to create neural networks.</p>
+<p>The first thing you want to do is to create a parameter file in the <code class="docutils literal notranslate"><span class="pre">input/</span></code> folder. It is a good idea for the first run to use the <code class="docutils literal notranslate"><span class="pre">input/example.param</span></code> file (with iterative sampling), and this is also helpful for creating new parameter files. Open the parameter file in your favourite text editor and make sure that the parameter <code class="docutils literal notranslate"><span class="pre">mcmc_sampler</span></code> is set to the MCMC sampler you want to use.</p>
+<p>If using a cluster with SLURM, you can use the jobscript <code class="docutils literal notranslate"><span class="pre">jobscripts/example.js</span></code>. Open this in a text editor and adjust the SLURM parameters to fit your cluster. Now submit the job</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>sbatch<span class="w"> </span>jobscripts/example.js
+</pre></div>
+</div>
+<p>Once the job starts, you can monitor the progress in the <code class="docutils literal notranslate"><span class="pre">data/&lt;jobname&gt;/output.log</span></code> file. This tells you how far the iterative sampling has come, and what the code is currently doing. The first thing the code does is to create an initial model from a Latin hypercube sampling. The output from this will look like</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>No initial model given
+Calculating 10000 initial CLASS models
+Training neural network
+1/1 - 0s - loss: 228.5294 - 58ms/epoch - 58ms/step
+
+Test loss: 228.5294189453125
+Initial model is example
+</pre></div>
+</div>
+<p>From here it will begin the iterative process and each iteration will look something like</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Beginning iteration no. 1
+Temperature is now 5.0
+Running MCMC sampling no. 1...
+MCMC sampling stopped since R-1 less than 0.05 has been reached.
+Number of accepted steps: 12340
+Keeping only last 5000 of the accepted Markovian steps
+Comparing latest iterations...
+Calculating 5000 CLASS models
+Training neural network
+1/1 - 0s - loss: 7.6460 - 34ms/epoch - 34ms/step
+
+Test loss: 7.645951747894287
+New model is example_1
+</pre></div>
+</div>
+<p>This should not take more than 3-5 iterations with the setup in <code class="docutils literal notranslate"><span class="pre">input/example.param</span></code>, so using 100 CPU cores with a walltime of 8-10 hours should be sufficient. The computational bottleneck is the <code class="docutils literal notranslate"><span class="pre">Calculating</span> <span class="pre">N</span> <span class="pre">CLASS</span> <span class="pre">models</span></code> step, but this is very parallelisable, so given enough CPU cores, this will be fast. The more time consuming bottleneck is the MCMC samplings which can (as of now) only utilise a few cores at a time, given that it is not very parallelisable.</p>
+<p>If the walltime was set too low or the iterative sampling did not halt for some reason, it is possible to resume the sampling from the last iteration. This is done by adding this line to your parameter file and submitting the job again</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">resume_iterations</span> <span class="o">=</span> <span class="kc">True</span>
+</pre></div>
+</div>
+<p>This can also be used if you want to continue a job with new settings (different loss function, architecture, etc.).</p>
+<p>When your job has halted, you can look in the <code class="docutils literal notranslate"><span class="pre">data/&lt;jobname&gt;/output.log</span></code> file for the name of the last model. This will generally be a good model that you can use for MCMC and similar, but if you want to train a new model for more epochs or with another architecture, you can do so on the same data collected by the iterative process. This done by changing the training parameters in the parameter file (<code class="docutils literal notranslate"><span class="pre">example.param</span></code> used here) and running</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>connect.py<span class="w"> </span>train<span class="w"> </span>input/example.param
+</pre></div>
+</div>
+<p>either in a jobscript similar to <code class="docutils literal notranslate"><span class="pre">jobscripts/example.js</span></code> or locally with CPUs or GPUs (remember to load <code class="docutils literal notranslate"><span class="pre">cuda</span></code> if using GPUs).</p>
+<p>Once a neural network has been trained, this can be used as described in <a class="reference internal" href="usage.html#usage-using-trained-nn-for-mcmc"><span class="std std-ref">this section</span></a> (Using a trained neural network for MCMC).</p>
+<section id="useful-commands-for-monitoring-the-iterative-sampling">
+<h2>Useful commands for monitoring the iterative sampling<a class="headerlink" href="#useful-commands-for-monitoring-the-iterative-sampling" title="Link to this heading"></a></h2>
+<p>While the iterative process is running each individual step can be monitored with different <code class="docutils literal notranslate"><span class="pre">.log</span></code> files.</p>
+<p>All errors can be seen in the SLURM output file defined in the job script.</p>
+<p>When calculating Class models, the computed amount can be monitored by the command</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>data/&lt;jobname&gt;/number_&lt;iteration&gt;/model_params_data/*.txt<span class="w"> </span><span class="p">|</span><span class="w"> </span>wc<span class="w"> </span>-l
+</pre></div>
+</div>
+<p>When an MCMC is running, the output from either Monte Python or Cobaya can be seen in</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>data/&lt;jobname&gt;/number_&lt;iteration&gt;/montepython.log
+</pre></div>
+</div>
+<p>or</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>data/&lt;jobname&gt;/number_&lt;iteration&gt;/cobaya.log
+</pre></div>
+</div>
+<p>When training the neural network, the progress can be monitored in</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>data/&lt;jobname&gt;/number_&lt;iteration&gt;/training.log
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="usage.html" class="btn btn-neutral float-left" title="Usage" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="support.html" class="btn btn-neutral float-right" title="Support" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Andreas Nygaard.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

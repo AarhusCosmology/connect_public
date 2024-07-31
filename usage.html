@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage &mdash; CONNECT 24.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=aeb54688"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Example of workflow - ΛCDM" href="workflow.html" />
+    <link rel="prev" title="Installation and setup" href="installation.html" />
+    <link href="_static/custom.css" rel="stylesheet" type="text/css">
+    <script src="_static/custom.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            CONNECT
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation and setup</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Usage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#creating-a-neural-network">Creating a neural network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#using-a-trained-neural-network-for-mcmc">Using a trained neural network for MCMC</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#monte-python">Monte Python</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#bug-in-monte-python-3-6">Bug in Monte Python &gt;= 3.6</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#cobaya">Cobaya</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#using-a-trained-neural-network-on-its-own">Using a trained neural network on its own</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="workflow.html">Example of workflow - ΛCDM</a></li>
+<li class="toctree-l1"><a class="reference internal" href="support.html">Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cosmoslider.html">CosmoSlider</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">CONNECT</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Usage</li>
+  <li class="wy-breadcrumbs-aside">
+    <a href="https://github.com/AarhusCosmology/connect_public" class="fa fa-github"> View on GitHub</a>
+  </li>
+
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="usage">
+<h1>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h1>
+<p>CONNECT is currently meant for creating neural networks to be used with other codes, such as MCMC samplers. Some quick overviews of how to create a neural network and how to use it afterwards are presented below.</p>
+<section id="creating-a-neural-network">
+<h2>Creating a neural network<a class="headerlink" href="#creating-a-neural-network" title="Link to this heading"></a></h2>
+<p>With CONNECT, one can either create training data or train a neural network model using specified training data. The syntax for creating training data is:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>connect.py<span class="w"> </span>create<span class="w"> </span>input/&lt;parameter_file&gt;
+</pre></div>
+</div>
+<p>The parameter file specifies all details (see <code class="docutils literal notranslate"><span class="pre">input/example.param</span></code>). The syntax for training is similarly:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>connect.py<span class="w"> </span>train<span class="w"> </span>input/&lt;parameter_file&gt;
+</pre></div>
+</div>
+<p>This is typically used if one wants to retrain on the same data with different training parameters. Both of these can be called through a job script if on a cluster using SLURM (see the example job script <code class="docutils literal notranslate"><span class="pre">jobscripts/example.js</span></code>).</p>
+<p>There are three different kinds of parameters to give in the parameter files (all with default values): <em>training parameters</em>, <em>sampling parameters</em>, and <em>saving parameters</em>.</p>
+<p>The training parameters include the architecture of the network as well as normalisation method, loss function, activation function, etc. The list includes the following:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">train_ratio</span>          <span class="o">=</span> <span class="mf">0.9</span>                <span class="c1"># how much data to use for training - the rest is stored as test data</span>
+<span class="n">val_ratio</span>            <span class="o">=</span> <span class="mf">0.01</span>               <span class="c1"># how much of the training data to use for validation during training</span>
+<span class="n">epochs</span>               <span class="o">=</span> <span class="mi">200</span>                <span class="c1"># number of epochs (cycles) to train for</span>
+<span class="n">batchsize</span>            <span class="o">=</span> <span class="mi">64</span>                 <span class="c1"># data is split into batches of this size during training</span>
+<span class="n">N_hidden_layers</span>      <span class="o">=</span> <span class="mi">4</span>                  <span class="c1"># number of hidden layers</span>
+<span class="n">N_nodes</span>              <span class="o">=</span> <span class="mi">512</span>                <span class="c1"># number of nodes (neurons) in each hidden layer</span>
+<span class="n">loss_function</span>        <span class="o">=</span> <span class="s1">&#39;mse&#39;</span>              <span class="c1"># loss function used during training for optimisation</span>
+<span class="n">activation_function</span>  <span class="o">=</span> <span class="s1">&#39;relu&#39;</span>             <span class="c1"># activation function used in all hidden layers</span>
+<span class="n">normalization_method</span> <span class="o">=</span> <span class="s1">&#39;standardization&#39;</span>  <span class="c1"># normalisation method to use on output data</span>
+</pre></div>
+</div>
+<p>There are different ways of gathering training data: Latin hypercube sampling, hypersphere sampling described in <a class="reference external" href="https://arxiv.org/abs/2405.01396">[arXiv:2405.01396]</a>, and the iterative approach described in <a class="reference external" href="https://arxiv.org/abs/2205.15726">[arXiv:2205.15726]</a>. This is chosen in the parameter file as either <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">=</span> <span class="pre">'lhc'</span></code>, <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">=</span> <span class="pre">'hypersphere'</span></code>, or <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">=</span> <span class="pre">'iterative'</span></code>. It is also possible to load an existing set of training data through a pickle file by setting <code class="docutils literal notranslate"><span class="pre">sampling</span> <span class="pre">=</span> <span class="pre">'pickle'</span></code>. Some additional parameters are available for the iterative sampling (see <code class="docutils literal notranslate"><span class="pre">input/example.param</span></code>). The sampling parameters include the following:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">parameters</span>           <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;H0&#39;</span>        <span class="p">:</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span>   <span class="mi">76</span>  <span class="p">],</span>   <span class="c1"># parameters to sample in given as a dictionary with **min** and **max** values in a list</span>
+                       <span class="s1">&#39;omega_cdm&#39;</span>  <span class="p">:</span> <span class="p">[</span><span class="mf">0.10</span><span class="p">,</span> <span class="mf">0.14</span><span class="p">]}</span>
+<span class="n">extra_input</span>          <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;omega_b&#39;</span><span class="p">:</span> <span class="mf">0.0223</span><span class="p">}</span>            <span class="c1"># extra input for CLASS given as normal CLASS input</span>
+<span class="n">output_Cl</span>            <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;tt&#39;</span><span class="p">,</span> <span class="s1">&#39;te&#39;</span><span class="p">,</span> <span class="s1">&#39;ee&#39;</span><span class="p">]</span>             <span class="c1"># which Cl spectra to emulate. These must exist in the cosmo.lensed_cl() dictionary</span>
+<span class="n">output_Pk</span>            <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;pk&#39;</span><span class="p">,</span> <span class="s1">&#39;pk_cb&#39;</span><span class="p">]</span>                <span class="c1"># which Pk spectra to emulate. These must exist as a method in the classy wrapper, e.g. cosmo.pk_cb(k,z)</span>
+<span class="n">k_grid</span>               <span class="o">=</span> <span class="p">[</span><span class="mf">1e-2</span><span class="p">,</span> <span class="mf">1e-1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">]</span>            <span class="c1"># k_grid of matter power spectra. The default grid of 100 values is optimal in most cases (optional)</span>
+<span class="n">z_Pk_list</span>            <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">,</span> <span class="mf">13.6</span><span class="p">]</span>               <span class="c1"># list of z-values to compute matter power spectra for</span>
+<span class="n">output_bg</span>            <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;ang.diam.dist&#39;</span><span class="p">]</span>              <span class="c1"># which background functions to emulate. These must exist in cosmo.get_background()</span>
+<span class="n">z_bg_list</span>            <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">]</span>                <span class="c1"># list of z-values to compute background functions for. This defaults to 100 evenly spaced points in log space (optional)</span>
+<span class="n">output_th</span>            <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;w_b&#39;</span><span class="p">,</span> <span class="s1">&#39;tau_d&#39;</span><span class="p">]</span>               <span class="c1"># which thermodynamics functions to emulate. These must exist in cosmo.get_thermodynamics()</span>
+<span class="n">z_th_list</span>            <span class="o">=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">]</span>                <span class="c1"># list of z-values to compute thermodynamics functions for. This defaults to 100 evenly spaced points in log space (optional)</span>
+<span class="n">extra_output</span>         <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;rs_drag&#39;</span><span class="p">:</span> <span class="s1">&#39;cosmo.rs_drag()&#39;</span><span class="p">}</span> <span class="c1"># completely custom output. Name of the output is the key and the value is a string of code that outputs either a float, an int or a 1D array</span>
+<span class="n">output_derived</span>       <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;YHe&#39;</span><span class="p">,</span> <span class="s1">&#39;sigma_8&#39;</span><span class="p">]</span>             <span class="c1"># which derived parameters to emulate</span>
+<span class="n">N</span>                    <span class="o">=</span> <span class="mf">1e+4</span>                           <span class="c1"># how many data points to sample using a Latin hypercube (initial step for iterative sampling)</span>
+<span class="n">sampling</span>             <span class="o">=</span> <span class="s1">&#39;iterative&#39;</span>                    <span class="c1"># sampling method - &#39;lhc&#39;, &#39;hypersphere&#39;, &#39;pickle&#39;, or &#39;iterative&#39;</span>
+
+<span class="c1">### Additional parameters for iterative sampling ###</span>
+<span class="n">N_max_points</span>         <span class="o">=</span> <span class="mf">2e+4</span>                           <span class="c1"># maximum number of points to sample from each iteration</span>
+<span class="n">mcmc_sampler</span>         <span class="o">=</span> <span class="s1">&#39;montepython&#39;</span>                  <span class="c1"># MCMC code to use in each iteration - &#39;montepython&#39; or &#39;cobaya&#39;</span>
+<span class="n">initial_model</span>        <span class="o">=</span> <span class="kc">None</span>                           <span class="c1"># initial model to start from instead of using a Latin hypercube</span>
+<span class="n">initial_sampling</span>     <span class="o">=</span> <span class="s1">&#39;hypersphere&#39;</span>                  <span class="c1"># initial configuration of training data - &#39;lhc&#39;, &#39;hypersphere&#39; or &#39;pickle&#39;</span>
+<span class="n">mcmc_tol</span>             <span class="o">=</span> <span class="mf">0.01</span>                           <span class="c1"># convergence criterion for R-1 values in MCMC runs in each iteration</span>
+<span class="n">iter_tol</span>             <span class="o">=</span> <span class="mf">0.1</span>                            <span class="c1"># convergence criterion for R-1 values between data from two consecutive iterations</span>
+<span class="n">temperature</span>          <span class="o">=</span> <span class="mf">5.0</span>                            <span class="c1"># sampling temperature during MCMC - if a list is provided, additional iterations with annealing will be done</span>
+<span class="n">sampling_likelihoods</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Planck_lite&#39;</span><span class="p">]</span>                <span class="c1"># likelihoods to use for sampling in the iterations</span>
+<span class="n">prior_ranges</span>         <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;H0&#39;</span> <span class="p">:</span> <span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">]}</span>             <span class="c1"># prior ranges to be used by the MCMC sampler (optional)</span>
+<span class="n">bestfit_guesses</span>      <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;H0&#39;</span> <span class="p">:</span> <span class="mf">67.7</span><span class="p">}</span>                  <span class="c1"># bestfit guesses to be used for proposal distribution by the MCMC sampler (optional)</span>
+<span class="n">sigma_guesses</span>        <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;H0&#39;</span> <span class="p">:</span> <span class="mf">0.5</span><span class="p">}</span>                   <span class="c1"># sigma guesses to be used for proposal distribution by the MCMC sampler (optional)</span>
+<span class="n">log_priors</span>           <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;omega_cdm&#39;</span><span class="p">]</span>                  <span class="c1"># which parameters to sample with logarithmic priors (optional)</span>
+<span class="n">keep_first_iteration</span> <span class="o">=</span> <span class="kc">False</span>                          <span class="c1"># whether or not to keep data from the first iteration - usually bad</span>
+<span class="n">resume_iterations</span>    <span class="o">=</span> <span class="kc">False</span>                          <span class="c1"># whether or not to resume a previous run if something failed or additional iterations are needed</span>
+<span class="n">extra_cobaya_lkls</span>    <span class="o">=</span> <span class="p">{}</span>                             <span class="c1"># additional likelihoods to sample with when using cobaya as MCMC sampler</span>
+
+<span class="c1">### Additional parameters for hypersphere sampling (when either &#39;sampling&#39; or &#39;initial_sampling&#39; is &#39;hypersphere&#39;) ###</span>
+<span class="n">hypersphere_surface</span>  <span class="o">=</span> <span class="kc">False</span>                          <span class="c1"># Whether or not to just sample from the surface of the hypersphere</span>
+<span class="n">hypersphere_covmat</span>   <span class="o">=</span> <span class="kc">None</span>                           <span class="c1"># Path to covariance matrix to align hypersphere along axes of correlation - same format as MontePython</span>
+
+<span class="c1">### Additional parameters for reading pickled data (when either &#39;sampling&#39; or &#39;initial_sampling&#39; is &#39;pickle&#39;) ###</span>
+<span class="n">pickle_data_file</span>     <span class="o">=</span> <span class="kc">None</span>                           <span class="c1"># Path to pickle file containing an (N,M)-dimensional array where M is the number of parameters and N is the number of points</span>
+</pre></div>
+</div>
+<p>The saving parameters are used for naming the outputted neural network models along with the folder for training data. The parameters include the following:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">jobname</span>         <span class="o">=</span> <span class="s1">&#39;example&#39;</span>            <span class="c1"># identifier for the output and created training data stored under data/&lt;jobname&gt;</span>
+<span class="n">save_name</span>       <span class="o">=</span> <span class="s1">&#39;example_network&#39;</span>    <span class="c1"># name of trained models</span>
+<span class="n">overwrite_model</span> <span class="o">=</span> <span class="kc">False</span>                <span class="c1"># whether or not to overwrite names of trained models or to append a suffix</span>
+</pre></div>
+</div>
+</section>
+<section id="using-a-trained-neural-network-for-mcmc">
+<span id="usage-using-trained-nn-for-mcmc"></span><h2>Using a trained neural network for MCMC<a class="headerlink" href="#using-a-trained-neural-network-for-mcmc" title="Link to this heading"></a></h2>
+<p>All trained models are stored in <code class="docutils literal notranslate"><span class="pre">trained_models/</span></code>, and these can be loaded using native <code class="docutils literal notranslate"><span class="pre">TensorFlow</span></code> commands or the plugin module located in <code class="docutils literal notranslate"><span class="pre">mcmc_plugin/python/build/lib.connect_disguised_as_classy/</span></code> which functions like the <code class="docutils literal notranslate"><span class="pre">classy</span></code> wrapper for Class. To use the plugin instead of Class, one needs to add the path to <code class="docutils literal notranslate"><span class="pre">sys.path</span></code> in order for this module to be loaded when importing <code class="docutils literal notranslate"><span class="pre">classy</span></code>. One needs to specify the name of the model with <code class="docutils literal notranslate"><span class="pre">cosmo.set()</span></code> in the same way as any other Class parameter is set. This can be done in the following way:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="n">path_to_connect_classy</span> <span class="o">=</span> <span class="s1">&#39;&lt;path to connect_public&gt;/mcmc_plugin/python/build/lib.connect_disguised_as_classy&#39;</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">path_to_connect_classy</span><span class="p">)</span>
+<span class="kn">from</span> <span class="nn">classy</span> <span class="kn">import</span> <span class="n">Class</span>
+<span class="n">cosmo</span> <span class="o">=</span> <span class="n">Class</span><span class="p">()</span>
+<span class="n">cosmo</span><span class="o">.</span><span class="n">set</span><span class="p">({</span><span class="s1">&#39;connect_model&#39;</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">name</span> <span class="n">of</span> <span class="n">neural</span> <span class="n">network</span> <span class="n">model</span><span class="o">&gt;</span><span class="p">,</span>
+           <span class="s1">&#39;H0&#39;</span>           <span class="p">:</span> <span class="mf">67.7</span><span class="p">,</span>
+           <span class="o">...</span>
+          <span class="p">})</span>
+<span class="n">cosmo</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+<span class="bp">cls</span> <span class="o">=</span> <span class="n">cosmo</span><span class="o">.</span><span class="n">lensed_cl</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This wrapper is used by both Monte Python and Cobaya when using the neural network for MCMC runs.</p>
+<section id="monte-python">
+<h3>Monte Python<a class="headerlink" href="#monte-python" title="Link to this heading"></a></h3>
+<p>When running an MCMC with Monte Python, one has to set the configuration file to <code class="docutils literal notranslate"><span class="pre">&lt;path</span> <span class="pre">to</span> <span class="pre">connect_public&gt;/mcmc_plugin/connect.conf</span></code> using the Monte Python flag <code class="docutils literal notranslate"><span class="pre">--conf</span></code>. The important thing here is that the configuration file points to the CONNECT wrapper instead of Class for the cosmological module. It should look something like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">path</span><span class="p">[</span><span class="s1">&#39;cosmo&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&lt;path to connect_public&gt;/mcmc_plugin&#39;</span>
+<span class="n">path</span><span class="p">[</span><span class="s1">&#39;clik&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&lt;path to planck2018&gt;/code/plc_3.0/plc-3.01/&#39;</span>
+</pre></div>
+</div>
+<p>Additionally, one has to specify the CONNECT neural network model in the Monte Python parameter file as an extra cosmological argument:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">data</span><span class="o">.</span><span class="n">cosmo_arguments</span><span class="p">[</span><span class="s1">&#39;connect_model&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;&lt;name of connect model&gt;&#39;</span>
+</pre></div>
+</div>
+<p>If the model is located under <code class="docutils literal notranslate"><span class="pre">trained_models</span></code> the name is sufficient, but otherwise, the absolute path should be put instead. Now one can just start Monte Python as usual. Use only a single CPU core per chain, since the evaluation of the network is not parallelisable.</p>
+<section id="bug-in-monte-python-3-6">
+<h4>Bug in Monte Python &gt;= 3.6<a class="headerlink" href="#bug-in-monte-python-3-6" title="Link to this heading"></a></h4>
+<p>There is a <a class="reference external" href="https://github.com/brinckmann/montepython_public/issues/333">bug</a> introduced in the newest version of Monte Python which ignores the path to the cosmological module set in the <code class="docutils literal notranslate"><span class="pre">.conf</span></code> file. The easiest fix is to switch to the <code class="docutils literal notranslate"><span class="pre">3.5</span></code> branch using <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">checkout</span> <span class="pre">3.5</span></code> from within the <code class="docutils literal notranslate"><span class="pre">montepython_public</span></code> repository. Another fix is to run the following piece of bash code from your <code class="docutils literal notranslate"><span class="pre">connect_public</span></code> repository:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span><span class="s2">&quot;mcmc_plugin/python/build/lib.</span><span class="k">$(</span>python<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;import sys; print(sys.version)&#39;</span><span class="k">)</span><span class="s2">&quot;</span>
+ln<span class="w"> </span>mcmc_plugin/python/build/lib.connect_disguised_as_classy/classy.py<span class="w"> </span><span class="s2">&quot;mcmc_plugin/python/build/lib.</span><span class="k">$(</span>python<span class="w"> </span>-c<span class="w"> </span><span class="s1">&#39;import sys; print(sys.version)&#39;</span><span class="k">)</span><span class="s2">/classy.py&quot;</span>
+</pre></div>
+</div>
+<p>This creates a hard link to the wrapper with a name that is accepted by the Monte Python bug.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">setup.sh</span></code> script now automatically switches to the <code class="docutils literal notranslate"><span class="pre">3.5</span></code> branch by default. Later branches are also supported now by automatically running the code snippet above when newer versions of Monte Python are used.</p>
+</section>
+</section>
+<section id="cobaya">
+<h3>Cobaya<a class="headerlink" href="#cobaya" title="Link to this heading"></a></h3>
+<p>In Cobaya one must specify the CONNECT wrapper as the theory code in the input dictionary/yaml file. It should be specified in the following way:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">info</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;likelihood&#39;</span><span class="p">:</span> <span class="p">{</span><span class="o">...</span><span class="p">},</span>
+        <span class="s1">&#39;params&#39;</span><span class="p">:</span> <span class="p">{</span><span class="o">...</span><span class="p">},</span>
+        <span class="s1">&#39;sampler&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;mcmc&#39;</span><span class="p">:</span> <span class="p">{</span><span class="o">...</span><span class="p">}},</span>
+        <span class="s1">&#39;theory&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;CosmoConnect&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;ignore_obsolete&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                                    <span class="s1">&#39;path&#39;</span><span class="p">:</span>            <span class="s1">&#39;&lt;path to connect_public&gt;/mcmc_plugin/cobaya&#39;</span><span class="p">,</span>
+                                    <span class="s1">&#39;python_path&#39;</span><span class="p">:</span>     <span class="s1">&#39;&lt;path to connect_public&gt;mcmc_plugin/cobaya&#39;</span><span class="p">,</span>
+                                    <span class="s1">&#39;extra_args&#39;</span><span class="p">:</span>      <span class="p">{</span><span class="s1">&#39;connect_model&#39;</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">name</span> <span class="n">of</span> <span class="n">connect</span> <span class="n">model</span><span class="o">&gt;</span><span class="p">}</span>
+                                   <span class="p">}}}</span>
+</pre></div>
+</div>
+<p>Again, if the model is located under <code class="docutils literal notranslate"><span class="pre">trained_models</span></code> the name is sufficient, but otherwise, the absolute path should be put instead. Use only a single CPU core for each chain here as well.</p>
+</section>
+<section id="using-a-trained-neural-network-on-its-own">
+<h3>Using a trained neural network on its own<a class="headerlink" href="#using-a-trained-neural-network-on-its-own" title="Link to this heading"></a></h3>
+<p>If one is loading a model without the wrapper, it is important to know about the info dictionary that is now stored within the model object. This dictionary contains information on the parameter names, the output dimensions, etc. The following code snippet loads a model and computes the output:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+
+<span class="n">model_name</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">path</span> <span class="n">to</span> <span class="n">connect</span> <span class="n">model</span><span class="o">&gt;</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="nb">compile</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">info_dict</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">info_dict</span>
+
+<span class="n">v</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">constant</span><span class="p">([[</span><span class="o">...</span><span class="p">,</span> <span class="o">...</span><span class="p">]])</span>    <span class="c1"># input for neural network with dimension (N, M)</span>
+                                 <span class="c1"># where N is the number of input vectors and M is</span>
+                                 <span class="c1"># the number of cosmological parameters</span>
+
+<span class="n">emulated_output</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The indices for the different types of output is stored in the dictionary <code class="docutils literal notranslate"><span class="pre">info_dict['interval']</span></code>. For each kind of output (each type of Cl spectrum, matter power spectrum, derived parameter, etc.) an index or a list of two indices (start and end) is an item with the output name as the key.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">info_dict</span></code> in the above code snippet is a <code class="docutils literal notranslate"><span class="pre">DictWrapper</span></code> object that functions like a dictionary. All values are TensorFlow variables and all strings (except keys) are byte strings. The byte strings can be converted using <code class="docutils literal notranslate"><span class="pre">&lt;byte</span> <span class="pre">string&gt;.decode('utf-8')</span></code>. If one wants a pure python dictionary with regular types (<code class="docutils literal notranslate"><span class="pre">list</span></code>, <code class="docutils literal notranslate"><span class="pre">float</span></code>, <code class="docutils literal notranslate"><span class="pre">str</span></code>), then the same info dictionary can be loaded from a raw string version:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">info_dict</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">get_raw_info</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>This <code class="docutils literal notranslate"><span class="pre">info_dict</span></code> is now usable without having to change any types.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation and setup" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="workflow.html" class="btn btn-neutral float-right" title="Example of workflow - ΛCDM" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Andreas Nygaard.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
