@@ -250,7 +250,10 @@ then
     conda create -y --name $env_name python=3.10 cython matplotlib scipy numpy astropy pip numexpr pandas
     conda activate $env_name
     export LD_LIBRARY_PATH=/lib64:$LD_LIBRARY_PATH
-    pip install tensorflow mpi4py
+#    pip install tensorflow mpi4py
+    pip install mpi4py
+    pip install tensorflow==2.10
+    pip install tensorflow-probability==0.18.0
     if [ $Ans2_1 == $YES ]
     then
 	pip install pymultinest

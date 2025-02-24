@@ -1,11 +1,12 @@
-import tensorflow as tf
-import numpy as np
-import pickle as pkl
-from scipy.interpolate import CubicSpline
-import warnings
 import os
 import sys
+import pickle as pkl
+import warnings
 from pathlib import Path
+
+from scipy.interpolate import CubicSpline
+import tensorflow as tf
+import numpy as np
 import pyaspic
 from PyAspic.examples.Slowroll_lnrhoreh import Slowroll
 
@@ -32,8 +33,6 @@ class Class(real_classy.Class):
             self.model_name = model_name
         self._model_name = model_name
         self.aspic_params = {}
-
-
             
     @property
     def model_name(self):
@@ -56,60 +55,40 @@ class Class(real_classy.Class):
             else:
                 name = self.model_name
         try:
-            self.model = tf.keras.models.load_model(os.path.join(CONNECT_PATH,'trained_models',name), compile=False)
+            try:
+                self.model = tf.keras.models.load_model(os.path.join(CONNECT_PATH,'trained_models',name), compile=False)
+            except:
+                self.model = tf.keras.models.load_model(name, compile=False)
         except:
             raise NameError(f"No trained model by the name of '{name}'")
 
-        with open(os.path.join(CONNECT_PATH,'trained_models',name,'output_info.pkl'), 'rb') as f:
-            self.output_info = pkl.load(f)
+        try:
+            self.info = eval(self.model.get_raw_info().numpy().decode('utf-8'))
+        except:
+            with open(os.path.join(CONNECT_PATH,'trained_models',name,'output_info.pkl'), 'rb') as f:
+                self.info = pkl.load(f)
+            warnings.warn("Loading info dictionary from output_info.pkl is deprecated and will not be supported in the next update.")
 
-        self.param_names = self.output_info['input_names']
-        self.output_Cl = self.output_info['output_Cl']
-        self.output_derived = self.output_info['output_derived']
-        self.ell_computed = self.output_info['ell']
-        self.output_interval = self.output_info['interval']
-        self.normalize_method = self.output_info['normalize']['method'] 
-
-        if self.normalize_method == 'standardization':
-            std  = np.sqrt(self.output_info['normalize']['variance'])
-            mean = np.array(self.output_info['normalize']['mean'])
-            self.normalize_output = lambda output: output*std + mean
-        elif self.normalize_method == 'min-max':
-            x_min = np.array(self.output_info['normalize']['x_min'])
-            x_max = np.array(self.output_info['normalize']['x_max'])
-            self.normalize_output = lambda output: output*(x_max - x_min) + x_min
-        elif self.normalize_method == 'log':
-            out_size = 0
-            for output_type in self.output_info['interval']:
-                for out_interval in self.output_info['interval'][output_type].values():
-                    if out_interval[1] > out_size:
-                        out_size = out_interval[1]
-            shift_array = np.zeros(out_size)
-            for output_type in [out for out in self.output_info['normalize'] if out != 'method']:
-                for output in self.output_info['normalize'][output_type]:
-                    lim0, lim1 = self.output_info['interval'][output_type][output]
-                    shift_array[lim0:lim1] = self.output_info['normalize'][output_type][output] 
-            self.normalize_output = lambda output: np.exp(output) - shift_array
-        elif self.normalize_method == 'factor':
-            out_size = 0
-            for output_type in self.output_info['interval']:
-                for out_interval in self.output_info['interval'][output_type].values():
-                    if isinstance(out_interval, (int,np.int32,np.int64)):
-                        out_size = out_interval + 1
-                    elif out_interval[1] > out_size:
-                        out_size = out_interval[1]
-            factor_array = np.zeros(out_size)
-            for output_type in self.output_info['normalize']:
-                if output_type != 'method':
-                    for output in self.output_info['normalize'][output_type]:
-                        if isinstance(self.output_info['interval'][output_type][output], (int,np.int32,np.int64)):
-                            idx = self.output_info['interval'][output_type][output]
-                            factor_array[idx] = self.output_info['normalize'][output_type][output]
-                        else:
-                            lim0, lim1 = self.output_info['interval'][output_type][output]
-                            factor_array[lim0:lim1] = self.output_info['normalize'][output_type][output]
-            self.normalize_output = lambda output: output/factor_array
-            
+        self.param_names = self.info['input_names']
+        if 'output_Cl' in self.info:
+            self.output_Cl = self.info['output_Cl']
+            self.ell_computed = self.info['ell']
+        if 'output_Pk' in self.info:
+            self.output_Pk = self.info['output_Pk']
+            self.k_grid = self.info['k_grid']
+        if 'output_bg' in self.info:
+            self.output_bg = self.info['output_bg']
+            self.z_bg = self.info['z_bg']
+        if 'output_th' in self.info:
+            self.output_th = self.info['output_th']
+            self.z_th = self.info['z_th']
+        if 'output_derived' in self.info:
+            self.output_derived = self.info['output_derived']
+        if 'extra_output' in self.info:
+            self.extra_output = self.info['extra_output']
+        self.output_interval = self.info['interval']
+        if 'normalize' in self.info:
+            raise RuntimeError('Unnormalising the output from models is deprecated. Models now output the correct values instead of normalised values.')
 
         self.default = {'omega_b': 0.0223,
                         'omega_cdm': 0.1193,
@@ -135,46 +114,6 @@ class Class(real_classy.Class):
         del _output_predict
 
 
-#    def set(self, *args, **kwargs):
-#        if len(args) == 1 and not bool(kwargs):
-#            input_parameters = dict(args[0])
-#        elif len(args) == 0 and bool(kwargs):
-#            input_parameters = kwargs
-#        else:
-#            raise ValueError('Bad call!')
-#        if bool(input_parameters):
-#            ip_keys = list(input_parameters.keys())
-#            for par in ip_keys:
-#                if par[-12:] == '_log10_prior':
-#                    log10_par = input_parameters.pop(par)
-#                    input_parameters[par[:-12]]=10**log10_par
-#            try:
-#                self.model_name = input_parameters.pop('connect_model')
-#            except:
-#                pass
-#            super(Class, self).set(input_parameters)
-#
-#
-#    def compute(self, level=None):
-#        try:
-#            params = []
-#            for par_name in self.param_names:
-#                if par_name in self.pars:
-#                    params.append(self.pars[par_name])
-#                elif 'A_s' in self.pars and par_name == 'ln10^{10}A_s':
-#                    params.append(np.log(self.pars['A_s']*1e+10))
-#                elif 'ln10^{10}A_s' in self.pars and par_name == 'A_s':
-#                    params.append(np.exp(self.pars['ln10^{10}A_s'])*1e-10)
-#                else:
-#                    try:
-#                        params.append(self.default[par_name])
-#                    except:
-#                        raise KeyError(f'The parameter {par_name} is not listed with a default value. You can add one in the load_model method in file: {os.path.join(CONNECT_PATH,__file__)}')
-#            v = tf.constant([params])
-#            self.output_predict = self.normalize_output(self.model(v).numpy()[0])
-#        except:
-#            raise SystemError('No model has been loaded - Set the attribute model_name to the name of a trained CONNECT model')
-
     def set(self, *args, **kwargs):
         if len(args) == 1 and not bool(kwargs):
             input_parameters = dict(args[0])
@@ -188,17 +127,18 @@ class Class(real_classy.Class):
                 if par[-12:] == '_log10_prior':
                     log10_par = input_parameters.pop(par)
                     input_parameters[par[:-12]]=10**log10_par
-#                if 'aspic_' in par:
-#                    if par == 'aspic_model':
-#                        self.aspic_model = input_parameters.pop(par)
-#                    elif par == 'aspic_lnRhoReh':
-#                        self.aspic_lnRhoReh = input_parameters.pop(par)
-#                    elif par == 'aspic_w':
-#                        self.aspic_w = input_parameters.pop(par)
-#                    else:
-#                        self.aspic_params.update({par:input_parameters.pop(par)})
-#                if par == 'A_s':
-#                    self.aspic_As = input_parameters[par]
+                if 'aspic_' in par:
+                    if par == 'aspic_model':
+                        self.aspic_model = input_parameters.pop(par)
+                    elif par == 'aspic_lnRhoReh':
+                        self.aspic_lnRhoReh = input_parameters.pop(par)
+                    elif par == 'aspic_w':
+                        self.aspic_w = input_parameters.pop(par)
+                    else:
+                        self.aspic_params.update({par:input_parameters.pop(par)})
+                if par == 'A_s':
+                    self.aspic_As = input_parameters[par]
+
             try:
                 self.model_name = input_parameters.pop('connect_model')
             except:
@@ -207,9 +147,11 @@ class Class(real_classy.Class):
 
 
     def compute(self, level=None):
+        aspic_computed = Slowroll(self.aspic_model, self.aspic_w, self.aspic_lnRhoReh, self.aspic_As, *list(self.aspic_params.values()))
+        if aspic_computed.lnRhoEnd > self.aspic_lnRhoReh:
+            raise CosmoComputationError(f'Point is discarded since lnRhoReh={self.aspic_lnRhoReh} is lower than lnRhoEnd={aspic_computed.lnRhoEnd}')
         try:
             params = []
-#            aspic_computed = Slowroll(self.aspic_model, self.aspic_w, self.aspic_lnRhoReh, self.aspic_As, *list(self.aspic_params.values()))
             for par_name in self.param_names:
                 if par_name in self.pars:
                     params.append(self.pars[par_name])
@@ -217,33 +159,30 @@ class Class(real_classy.Class):
                     params.append(np.log(self.pars['A_s']*1e+10))
                 elif 'ln10^{10}A_s' in self.pars and par_name == 'A_s':
                     params.append(np.exp(self.pars['ln10^{10}A_s'])*1e-10)
-#                elif par_name in ['r', 'alpha_s', 'n_s']:
-#                    params.append(eval('aspic_computed.'+par_name))
+                elif par_name in ['r', 'alpha_s', 'n_s']:
+                    par_val = getattr(aspic_computed,par_name)
+                    params.append(par_val)
                 else:
                     try:
                         params.append(self.default[par_name])
                     except:
                         raise KeyError(f'The parameter {par_name} is not listed with a default value. You can add one in the load_model method in file: {os.path.join(CONNECT_PATH,__file__)}')
             v = tf.constant([params])
-            self.output_predict = self.normalize_output(self.model(v).numpy()[0])
+        
+            self.output_predict = self.model(v).numpy()[0]
         except:
             raise SystemError('No model has been loaded - Set the attribute model_name to the name of a trained CONNECT model')
 
 
-    def lensed_cl(self, lmax=-1):
+    def lensed_cl(self, lmax=2500):
         if not hasattr(self, 'output_predict'):
             self.compute()
 
-#        if lmax == -1:
-#            lmax = 2500
-#        if 'l_max_scalars' in self.pars.keys():
-#            lmax = self.pars['l_max_scalars']
-
         if lmax == -1:
-            if 'l_max_scalars' in self.pars.keys():
+            try:
                 lmax = self.pars['l_max_scalars']
-            else:
-                lmax = 2500
+            except:
+                lmax = 2508
 
         spectra = ['tt','ee','bb','te','pp','tp']
         out_dict = {}
@@ -263,7 +202,7 @@ class Class(real_classy.Class):
             out_dict[output] = np.insert(Cl[1:]*2*np.pi/(ell[1:]*(ell[1:]+1)), 0, 0.0) # Convert back to Cl form
 
         out_dict['ell'] = ell
-        null_out = np.ones(len(ell), dtype=np.float64) * 1e-15
+        null_out = np.ones(len(ell), dtype=np.float32) * 1e-15
         for spec in np.setdiff1d(spectra, self.output_Cl):
             out_dict[spec] = null_out
 
@@ -358,6 +297,39 @@ class Class(real_classy.Class):
             out_dict[name] = value 
 
         return out_dict
+
+
+    def get_background(self):
+        if not hasattr(self, 'output_predict'):
+            self.compute()
+
+        z_bg = self.info['z_bg']
+        z_out = np.linspace(z_bg[-1],z_bg[0],1000)
+        bg_dict={'z':z_out}
+        for output in self.output_bg:
+            out = self.output_predict[self.output_interval['bg'][output][0]:
+                                      self.output_interval['bg'][output][1]]
+            out_s = CubicSpline(z_bg, out, bc_type='natural')(z_out)
+            bg_dict[output] = out_s
+
+        return bg_dict
+
+
+    def get_thermodynamics(self):
+        if not hasattr(self, 'output_predict'):
+            self.compute()
+
+        z_th = self.info['z_th']
+        z_out = np.linspace(z_th[0],z_th[-1],10000)
+        th_dict={'z':z_out}
+        for output in self.output_th:
+            out = self.output_predict[self.output_interval['th'][output][0]:
+                                      self.output_interval['th'][output][1]]
+            out_s = CubicSpline(z_th, out, bc_type='natural')(z_out)
+            th_dict[output] = out_s
+
+        return th_dict
+    
 
 
 sys.path.insert(0, p_backup)
