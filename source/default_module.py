@@ -1,5 +1,6 @@
 from importlib.machinery import SourceFileLoader
 import difflib as dl
+import types
 
 import numpy as np
 
@@ -7,6 +8,7 @@ import numpy as np
 class Parameters():
     def __init__(self, param_file):
         param = SourceFileLoader(param_file, param_file).load_module()
+
         jobname = param_file.split('/')[-1].split('.')[0]
 
         self.param_file = param_file
@@ -51,6 +53,7 @@ class Parameters():
                    'sigma_guesses'        :  ( {}                      ,  dict         ),
                    'log_priors'           :  ( []                      ,  list         ),
                    'keep_first_iteration' :  ( False                   ,  bool         ),
+                   'keep_initial_data'    :  ( False                   ,  bool         ),
                    'resume_iterations'    :  ( False                   ,  bool         ),
                    'extra_cobaya_lkls'    :  ( {}                      ,  dict         ),
                    ### Additional parameters for other kinds of sampling
@@ -61,6 +64,8 @@ class Parameters():
                    'jobname'              :  ( jobname                 ,  str          ),
                    'save_name'            :  ( None                    ,  str          ),
                    'overwrite_model'      :  ( False                   ,  bool         ),
+                   ### Miscellaneous parameters
+                   'max_time_for_theory'  :  ( 200                     ,  int          ),
                    }
         
         for key, val in default.items():
@@ -104,7 +109,9 @@ class Parameters():
 
     def get_name_errors(self, param, default):
         name_errors = ['NameErrors:']
-        for name in [n for n in dir(param) if not n.startswith('__') and not n.endswith('__')]:
+        for name in [n for n in dir(param) if (not n.startswith('__')
+                                               and not n.endswith('__')
+                                               and not isinstance(getattr(param,n), types.ModuleType))]:
             if not name in default:
                 matches = dl.get_close_matches(name, default.keys())
                 if len(matches) == 0:
@@ -114,7 +121,7 @@ class Parameters():
                     input_val = getattr(param, name)
                     input_type = type(input_val)
                     target_type = default[matches[0]][1]
-                    if type(target_type) is tuple:
+                    if isinstance(target_type, tuple):
                         type_bool = (input_type not in target_type)
                     else:
                         type_bool = (input_type != target_type)
@@ -134,7 +141,7 @@ class Parameters():
             input_type = type(input_val)
             target_val = val[0]
             target_type = val[1]
-            if type(target_type) is tuple:
+            if isinstance(target_type, tuple):
                 type_bool = (input_type not in target_type)
             else:
                 type_bool = (input_type != target_type)
@@ -144,7 +151,7 @@ class Parameters():
                     continue
                 casting = self.try_cast_to_native_type(input_val, target_type)
                 if casting == None or (target_type in [list, tuple, set] and input_type == str):
-                    if type(target_type) is tuple:
+                    if isinstance(target_type, tuple):
                         msg = 'types '
                         for t in target_type:
                             msg += f"'{t.__name__}' or "

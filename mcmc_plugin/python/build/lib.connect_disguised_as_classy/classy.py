@@ -67,7 +67,17 @@ class Class(real_classy.Class):
             with open(os.path.join(CONNECT_PATH,'trained_models',name,'output_info.pkl'), 'rb') as f:
                 self.info = pkl.load(f)
             warnings.warn("Loading info dictionary from output_info.pkl is deprecated and will not be supported in the next update.")
-
+        self.output_Cl = []
+        self.ell_computed = []
+        self.output_Pk = []
+        self.k_grid = []
+        self.output_bg = []
+        self.z_bg = []
+        self.output_th = []
+        self.z_th = []
+        self.output_derived = []
+        self.extra_output = []
+        self.cached_splines = {}
         self.param_names = self.info['input_names']
         if 'output_Cl' in self.info:
             self.output_Cl = self.info['output_Cl']
@@ -75,6 +85,7 @@ class Class(real_classy.Class):
         if 'output_Pk' in self.info:
             self.output_Pk = self.info['output_Pk']
             self.k_grid = self.info['k_grid']
+            self.create_pk_methods()
         if 'output_bg' in self.info:
             self.output_bg = self.info['output_bg']
             self.z_bg = self.info['z_bg']
@@ -83,6 +94,7 @@ class Class(real_classy.Class):
             self.z_th = self.info['z_th']
         if 'output_derived' in self.info:
             self.output_derived = self.info['output_derived']
+            self.create_derived_methods()
         if 'extra_output' in self.info:
             self.extra_output = self.info['extra_output']
         self.output_interval = self.info['interval']
@@ -92,20 +104,21 @@ class Class(real_classy.Class):
         self.default = {'omega_b': 0.0223,
                         'omega_cdm': 0.1193,
                         'omega_g': 0.0001,
-                        'H0': 67.4,
-                        'h': 0.674,
+                        'H0': 67.7,
+                        'h': 0.677,
                         'tau_reio': 0.0541,
                         'n_s': 0.965,
-                        'ln10^{10}A_s': 3.04,
-                        'omega_ini_dcdm': 0,
-                        'Gamma_dcdm': 0,
-                        'm_ncdm': 0.03,
-                        'deg_ncdm': 0.8}
+                        'ln10^{10}A_s': 3.04
+                        }
+
 
         # Initialize calculations (first one is always slower due to internal graph execution) 
         _params = []
         for par_name in self.param_names:
-            _params.append(self.default[par_name])
+            if par_name in self.default:
+                _params.append(self.default[par_name])
+            else:
+                _params.append(0.0)
         _v = tf.constant([_params])
         _output_predict = self.model(_v).numpy()[0]
         del _params
@@ -132,6 +145,22 @@ class Class(real_classy.Class):
                 pass
             try:
                 self.compute_class_background = input_parameters.pop('compute_class_background')
+                values_not_matching = {}
+                parameters_not_set = {}
+                for key in self.info['extra_input']:
+                    if key in input_parameters:
+                        if self.info['extra_input'][key] != input_parameters[key]:
+                            values_not_matching[key] = (self.info['extra_input'][key], input_parameters[key])
+                    else:
+                        parameters_not_set[key] = self.info['extra_input'][key]
+                if parameters_not_set:
+                    warnings.warn("The following parameters have been used to train the network, but have not been given to CLASS for background computations. The values used by the network will be set:\n" +
+                                  "\n".join([f"        - {key} = {val}" for key, val in parameters_not_set.items()]))
+                if values_not_matching:
+                    warnings.warn("The following parameters have values that differ from what the network has been trained on. The values will be overwritten by the ones used to train the network:\n" +
+                                  "\n".join([f"        - {key} = {val[1]}\t->\t{key} = {val[0]}" for key, val in values_not_matching.items()]))
+                input_parameters.update(self.info['extra_input'])
+                input_parameters.update({'output': 'tCl,lCl,pCl,mPk', 'lensing': 'yes'})
             except:
                 pass
             super(Class, self).set(input_parameters)
@@ -139,7 +168,12 @@ class Class(real_classy.Class):
 
     def compute(self, level=None):
         if self.compute_class_background:
-            super(Class, self).compute(level=['thermodynamics'])
+            try:
+                super(Class, self).compute(level=['thermodynamics'])
+            except CosmoSevereError as e:
+                print('CLASS computation failed with these parameters:')
+                print(self.pars)
+                raise e
         try:
             params = []
             for par_name in self.param_names:
@@ -149,16 +183,17 @@ class Class(real_classy.Class):
                     params.append(np.log(self.pars['A_s']*1e+10))
                 elif 'ln10^{10}A_s' in self.pars and par_name == 'A_s':
                     params.append(np.exp(self.pars['ln10^{10}A_s'])*1e-10)
+                elif par_name in self.default:
+                    params.append(self.default[par_name])
                 else:
-                    try:
-                        params.append(self.default[par_name])
-                    except:
-                        raise KeyError(f'The parameter {par_name} is not listed with a default value. You can add one in the load_model method in file: {os.path.join(CONNECT_PATH,__file__)}')
+                    params.append(0.0)
+                    warnings.warn(f'The parameter {par_name} is not listed with a default value, so a value of 0.0 is used instead. You can add a default value to the load_model method in the file: {os.path.join(CONNECT_PATH,__file__)}')
             v = tf.constant([params])
         
             self.output_predict = self.model(v).numpy()[0]
         except:
             raise SystemError('No model has been loaded - Set the attribute model_name to the name of a trained CONNECT model')
+        self.cached_splines = {}
 
 
     def lensed_cl(self, lmax=2500):
@@ -252,7 +287,10 @@ class Class(real_classy.Class):
             names = [name if name != 'theta_s_100' else '100*theta_s' for name in names]
 
         names = set(names)
-        class_names = names - set(self.output_derived)
+        if self.output_derived:
+            class_names = names - set(self.output_derived)
+        else:
+            class_names = names
         names -= class_names
 
         if len(class_names) > 0:
@@ -316,8 +354,106 @@ class Class(real_classy.Class):
             th_dict[output] = out_s
 
         return th_dict
-    
 
+
+    def create_pk_methods(self):
+        for pk_name in self.output_Pk:
+            def pk_method(k,z, pk_name=pk_name):
+                if not hasattr(self, 'output_predict'):
+                    self.compute()
+                intervals = self.output_interval['Pk'][pk_name]
+                for i, z_key in enumerate([np.float64(x) for x in intervals.keys()]):
+                    if z == z_key:
+                        lim0 = intervals[list(intervals.keys())[i]][0]
+                        lim1 = intervals[list(intervals.keys())[i]][1]
+                        break
+                    elif i == len(intervals)-1:
+                        raise ValueError(f'The requested redshift of {z} has not been emulated.')
+                Pk_computed = self.output_predict[lim0:lim1]
+                Pk_spline = CubicSpline(self.k_grid, Pk_computed, bc_type='natural', extrapolate=True)
+                return np.float64(Pk_spline(k))
+            setattr(self, pk_name, pk_method)
+
+
+    def create_derived_methods(self):
+        for derived_name in self.output_derived:
+            if derived_name.isidentifier():
+                def derived_method(derived_name=derived_name):
+                    if not hasattr(self, 'output_predict'):
+                        self.compute()
+                    index = self.output_interval['derived'][derived_name]
+                    return self.output_predict[index]
+                setattr(self, derived_name, derived_method)
+
+
+    # These methods enable BAO and SN type likelihoods
+    # (bao_boss_dr12, bao_smallz_2014, Pantheon, etc.)
+    # to use emulated backround quantities
+
+    def Hubble(self, z):
+        if 'H [1/Mpc]' in self.output_bg:
+            if not hasattr(self, 'output_predict'):
+                self.compute()
+            if z in self.z_bg:
+                index = self.output_interval['bg']['H [1/Mpc]'][0]+self.z_bg.index(z)
+                return self.output_predict[index]
+            elif len(self.z_bg) > 2:
+                if 'Hubble' in self.cached_splines:
+                    return float(self.cached_splines['Hubble'](z))
+                else:
+                    out = self.output_predict[self.output_interval['bg']['H [1/Mpc]'][0]:
+                                              self.output_interval['bg']['H [1/Mpc]'][1]]
+                    spline = CubicSpline(self.z_bg, out, bc_type='natural')
+                    self.cached_splines['Hubble'] = spline
+                    return float(spline(z))
+            elif self.compute_class_background:
+                return super(Class, self).Hubble(z)
+            else:
+                raise ValueError(f"The requested redshift of {z} was not emulated and there are too few values for interpolation. You can use CLASS for all background computations by setting 'compute_class_background' to True.")
+        elif self.compute_class_background:
+            return super(Class, self).Hubble(z)
+        else:
+            raise ValueError("The Hubble parameter has not been emulated. You can use CLASS for all background computations by setting 'compute_class_background' to True.")
+
+    def angular_distance(self, z):
+        if 'ang.diam.dist.' in self.output_bg:
+            if not hasattr(self, 'output_predict'):
+                self.compute()
+            if z in self.z_bg:
+                index = self.output_interval['bg']['ang.diam.dist.'][0]+self.z_bg.index(z)
+                return self.output_predict[index]
+            elif len(self.z_bg) > 2:
+                if 'angular_distance' in self.cached_splines:
+                    return float(self.cached_splines['angular_distance'](z))
+                else:
+                    out = self.output_predict[self.output_interval['bg']['ang.diam.dist.'][0]:
+                                              self.output_interval['bg']['ang.diam.dist.'][1]]
+                    spline = CubicSpline(self.z_bg, out, bc_type='natural')
+                    self.cached_splines['anugular_distance'] = spline
+                    return float(spline(z))
+            elif self.compute_class_background:
+                return super(Class, self).Hubble(z)
+            else:
+                raise ValueError(f"The requested redshift of {z} was not emulated and there are too few values for interpolation. You can use CLASS for all background computations by setting 'compute_class_background' to True.")
+        elif self.compute_class_background:
+            return super(Class, self).Hubble(z)
+        else:
+            raise ValueError("The angular diameter distance has not been emulated. You can use CLASS for all background computations by setting 'compute_class_background' to True.")
+
+    def rs_drag(self):
+        if 'rs_drag' in self.extra_output:
+            if not hasattr(self, 'output_predict'):
+                self.compute()
+            index = self.output_interval['extra']['rs_drag'][0]
+            return self.output_predict[index]
+        elif self.compute_class_background:
+            return super(Class, self).rs_drag()
+        else:
+            raise ValueError("The rs_drag has not been emulated. You can use CLASS for all background computations by setting 'compute_class_background' to True.")
+
+
+    def struct_cleanup(self):
+        super(Class,self).struct_cleanup()
 
 for i, p in p_backup:
     sys.path.insert(i,p)

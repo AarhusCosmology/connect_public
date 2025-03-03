@@ -209,7 +209,7 @@ else:
             if not 'P_k_max_1/Mpc' in params:
                 params['P_k_max_1/Mpc'] = 1.
 
-        signal.alarm(200) # CLASS computations must not take longer than 200 seconds
+        signal.alarm(param.max_time_for_theory) # CLASS computations must not take longer than this amount of seconds (default is 200)
         try:
             cosmo = classy.Class()
             cosmo.set(params)

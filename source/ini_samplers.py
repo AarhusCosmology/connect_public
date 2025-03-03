@@ -58,7 +58,7 @@ class HypersphereSampler():
         self.rng = np.random.default_rng(seed=seed)
         if param.hypersphere_covmat is not None:
             cov_file = param.hypersphere_covmat
-            cov = get_covmat(cov_file, param)
+            cov = get_covmat(cov_file, param) * fac
             self.L = np.linalg.cholesky(cov)
 
         self.bounds = np.array(list(self.parameters.values()))

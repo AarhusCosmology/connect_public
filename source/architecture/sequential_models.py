@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 from ..custom_functions import ActivationFunctions
+from ..Splines import Spline
 
 class Dense_model(tf.keras.Model):
     def __init__(self,
@@ -13,7 +14,8 @@ class Dense_model(tf.keras.Model):
                  output_unnormaliser=lambda x: x,
                  num_hidden_layers=4,
                  dropout=False,
-                 batch_norm=False):
+                 batch_norm=False,
+                 ell_computed=[2,3,4,5]):
 
         # Inherit from tf.keras.Model
         super(Dense_model, self).__init__()
@@ -24,18 +26,25 @@ class Dense_model(tf.keras.Model):
         self._train_normalise = True
         self.raw_info = '{}'
         self.info_dict = {}
+        self.cached_input = []
+        self.cached_output = []
 
         self.input_normaliser = input_normaliser
+        self.num_parameters = num_parameters
         self.num_hidden_layers = num_hidden_layers
         self.hidden_layers = []
         self.batch_norm_layers = []
         self.dropout_layers = []
 
+        self.ell_computed = tf.constant(ell_computed, dtype=tf.float32)
+        self.ell = tf.linspace(2.,10000.,9999)
+        self.Cl_spline = Spline(self.ell_computed, self.ell)
+
 
         ### Define architecture ###
 
         # Create input layer
-        self.input_layer = tf.keras.layers.InputLayer(input_shape=(num_parameters,))
+        self.input_layer = tf.keras.layers.InputLayer(input_shape=(self.num_parameters,))
         # Create hidden layers
         self.act_params = []
         for i in range(self.num_hidden_layers):
@@ -61,7 +70,6 @@ class Dense_model(tf.keras.Model):
 
 
     def call(self, x, **kwargs):
-        
         x = self.input_normaliser(x)
         x = self.input_layer(x)
         for i in range(self.num_hidden_layers):
@@ -102,6 +110,56 @@ class Dense_model(tf.keras.Model):
         config = super().get_config()
         config['raw_info'] = self.raw_info
         return config
+
+    @tf.function(input_signature=[tf.TensorSpec([None,None], dtype=tf.float32)])
+    def get_cls(self, params):
+        if 'Cl' in self.info_dict['interval']:
+            output = self(params)
+            cls = {'ell': self.info_dict['ell']}
+            for key, lims in self.info_dict['interval']['Cl'].items():
+                cls[key] = output[:,lims[0]:lims[1]]
+            return cls
+        else:
+            print('No Cls were emulated')
+
+    @tf.function(input_signature=[tf.TensorSpec([None,None], dtype=tf.float32),
+                                  tf.TensorSpec(None, dtype=tf.int32)])
+    def get_cls_interp(self, params, l_max):
+        if 'Cl' in self.info_dict['interval']:
+            if l_max > 10000:
+                print("l_max can maximally be 10,000.")
+                l_max = 10000
+            output = self(params)
+            cls = {'ell': self.ell[:l_max-1]}
+            for key, lims in self.info_dict['interval']['Cl'].items():
+                cls[key] = self.Cl_spline.do_spline(output[:,lims[0]:lims[1]])[:,:l_max-1]
+            return cls
+        else:
+            print('No Cls were emulated')
+
+    @tf.function(input_signature=[tf.TensorSpec([None,None], dtype=tf.float32)])
+    def get_Pks(self, params):
+        if 'Pk' in self.info_dict['interval']:
+            output = self(params)
+            pks = {'k_grid': self.info_dict['k_grid']}
+            for key, z_dict in self.info_dict['interval']['Pk'].items():
+                pks[key] = {}
+                for key2, lims in z_dict.items():
+                    pks[key][key2] = output[:,lims[0]:lims[1]]
+            return pks
+        else:
+            print('No Pks were emulated')
+
+    @tf.function(input_signature=[tf.TensorSpec([None,None], dtype=tf.float32)])
+    def get_derived(self, params=None):
+        if 'derived' in self.info_dict['interval']:
+            output = self(params)
+            derived = {}
+            for key, lims in self.info_dict['interval']['derived'].items():
+                derived[key] = output[:,lims]
+            return derived
+        else:
+            print('No derived parameters were emulated')
 
 
 class UnnormaliseOutputLayer(tf.keras.layers.Layer):

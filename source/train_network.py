@@ -412,6 +412,11 @@ class Training():
             stdout_backup = sys.stdout
             sys.stdout = open(output_file, 'w')
 
+        if 'ell' in self.output_info:
+            ell_computed = self.output_info['ell']
+        else:
+            ell_computed = [2,3,4,5]
+
         with self.training_strategy:
 
             self.model = Dense_model(self.param.N_nodes, 
@@ -420,7 +425,8 @@ class Training():
                                      input_normaliser=self.input_normaliser,
                                      output_unnormaliser=self.unnormalise,
                                      activation=self.param.activation_function,
-                                     num_hidden_layers=self.param.N_hidden_layers)
+                                     num_hidden_layers=self.param.N_hidden_layers,
+                                     ell_computed=ell_computed)
             
             self.model.compile(optimizer=adam,
                                loss=self.loss_fun)
