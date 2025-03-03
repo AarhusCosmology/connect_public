@@ -128,6 +128,10 @@ class Sampling():
                 N_accepted = mcmc.discard_oversampled_points(i)
                 N_in_data_set = mcmc.get_number_of_data_points(i-1) + N_accepted
                 print(f"Accepted {N_accepted} points out of {N_keep}", flush=True)
+            elif i == 1 and self.param.keep_initial_data:
+                N_accepted = mcmc.discard_oversampled_points(i)
+                N_in_data_set = mcmc.get_number_of_data_points(i-1) + N_accepted
+                print(f"Accepted {N_accepted} points out of {N_keep}", flush=True)
             else:
                 N_accepted=N_keep
                 N_in_data_set = 0
@@ -152,6 +156,9 @@ class Sampling():
             if i > int(not self.param.keep_first_iteration) + 1 and i <= i_converged:
                 combine_iterations_data(self.param, i)
                 print(f"Copied data from data/{self.param.jobname}/number_{i-1} into data/{self.param.jobname}/number_{i}", flush=True)
+            elif i == 1 and self.param.keep_initial_data:
+                combine_iterations_data(self.param, i)
+                print(f"Copied data from data/{self.param.jobname}/N-{self.param.N} into data/{self.param.jobname}/number_{i}", flush=True)
 
             print("Training neural network", flush=True)
             model = self.train_neural_network(sampling='iterative',
@@ -180,10 +187,10 @@ class Sampling():
         self.param.param_file = self.CONNECT_PATH+'/'+self.data_path+'/log_connect.param'
 
     def call_calc_models(self, sampling='lhc'):
-        os.environ["export OMP_NUM_THREADS"] = str({self.N_cpus_per_task})
+        os.environ["OMP_NUM_THREADS"] = str({self.N_cpus_per_task})
         os.environ["PMIX_MCA_gds"] = "hash"
         sp.check_call(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split())
-        os.environ["export OMP_NUM_THREADS"] = "1"
+        os.environ["OMP_NUM_THREADS"] = "1"
 
     def train_neural_network(self, sampling='lhc', output_file=None):
         if sampling in ['lhc','hypersphere','pickle']:

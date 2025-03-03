@@ -179,7 +179,10 @@ def combine_iterations_data(param,             # Parameter object
                         ):
 
     path_i = os.path.join(CONNECT_PATH, f'data/{param.jobname}/number_{iter_num}')
-    path_j = os.path.join(CONNECT_PATH, f'data/{param.jobname}/number_{iter_num-1}')
+    if iter_num-1 == 0:
+        path_j = os.path.join(CONNECT_PATH, f'data/{param.jobname}/N-{param.N}')
+    else:
+        path_j = os.path.join(CONNECT_PATH, f'data/{param.jobname}/number_{iter_num-1}')
     combine_sets_of_data_files(os.path.join(path_i, 'model_params.txt'),
                                os.path.join(path_j, 'model_params.txt'))
     if len(param.output_derived) > 0:

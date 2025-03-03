@@ -109,7 +109,10 @@ class MCMC_base_class():
                                    iteration         # Current iteration number
                                ):
 
-        file_old_data = f"data/{self.param.jobname}/number_{iteration-1}/model_params.txt"
+        if iteration-1 == 0:
+            file_old_data = f"data/{self.param.jobname}/N-{self.param.N}/model_params.txt"
+        else:
+            file_old_data = f"data/{self.param.jobname}/number_{iteration-1}/model_params.txt"
         points1, points2 = self.import_points_to_compare(file_old_data, iteration)
 
         num_points_in_vicinity = 10
@@ -196,5 +199,9 @@ class MCMC_base_class():
                                   iteration   # Iteration number
                               ):
 
-        with open(os.path.join(self.CONNECT_PATH, f'data/{self.param.jobname}/number_{iteration}/model_params.txt'), 'r') as f:
+        if iteration == 0:
+            folder = f"N-{self.param.N}"
+        else:
+            folder = f"number_{iteration}"
+        with open(os.path.join(self.CONNECT_PATH, f'data/{self.param.jobname}/{folder}/model_params.txt'), 'r') as f:
             return len(list(f)) - 1
