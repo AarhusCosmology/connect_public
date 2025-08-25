@@ -265,7 +265,7 @@ then
     export LD_LIBRARY_PATH=/lib64:$LD_LIBRARY_PATH
     pip install matplotlib==3.7
     pip install mpi4py==3.1.4
-    pip install tensorflow==2.10
+    pip install tensorflow==2.13
     pip install tensorflow-probability==0.18.0
     pip install sshkeyboard
     pip install playsound
@@ -387,13 +387,36 @@ then
 	cd resources
 	git clone https://github.com/lesgourg/class_public.git
 	cd class_public
-	git checkout aa92943e4ab86b56970953589b4897adf2bd0f99
+	git checkout 0ceb7a9a4c1e444ef5d5d56a8328a0640be91b18
 	echo "--> Building classy wrapper..."
-	sed -i 's/cpdef/cdef/g' python/classy.pyx
-	make clean
-	make -j
-	cd $connect_path
-	echo "--> ...done!"
+
+	if [[ "$OSTYPE" == "darwin"* ]]; then
+	    echo "Detected macOS: setting Clang for Python build"
+	    FILE="Makefile"
+	    # Use temporary file to avoid in-place issues across platforms
+	    TMP_FILE=$(mktemp)
+	    # Process the file line by line
+	    while IFS= read -r line; do
+		if [[ "$line" == *"CC"* && "$line" == *"="* ]]; then
+		    line="${line//gcc/clang}"
+		fi
+		if [[ "$line" == *"CPP"* && "$line" == *"="* && "$line" != *"clang"* ]]; then
+		    line="${line//g++/clang++}"
+		fi
+		echo "$line"
+	    done < "$FILE" > "$TMP_FILE"
+	    # Replace original file
+	    mv "$TMP_FILE" "$FILE"
+	    export CC=clang
+	    export CXX=clang++
+	    export CFLAGS="-O2 -stdlib=libc++"
+	    export CXXFLAGS="-O2 -stdlib=libc++"
+	    export LDFLAGS="-stdlib=libc++"
+	    PATH=$(echo $PATH | tr ':' '\n' | grep -v gcc | grep -v g++ | paste -sd: -)
+	fi
+        pip install .
+        cd $connect_path
+        echo "--> ...done!"
     fi
 fi
 
