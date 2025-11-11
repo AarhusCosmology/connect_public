@@ -56,11 +56,10 @@ class HypersphereSampler():
 
         seed = None
         self.rng = np.random.default_rng(seed=seed)
-        if param.hypersphere_covmat is not None:
-            cov_file = param.hypersphere_covmat
-            cov = get_covmat(cov_file, param) * fac
-            self.L = np.linalg.cholesky(cov)
 
+        cov = get_covmat(param) * fac
+        self.L = np.linalg.cholesky(cov)
+        
         self.bounds = np.array(list(self.parameters.values()))
         self.bounds = np.insert(self.bounds, 1, bestfit_guesses, axis=1)
         # Compute bounding box around 0
@@ -99,8 +98,10 @@ class HypersphereSampler():
                 yield c
 
     def run(self):
+        print('running hypersphere sampler')
         data = np.array(list(itertools.islice(self.get_transformed_hypersphere_vector_with_bbox(),self.N)))
         data += self.bounds[:,1]
+        print('hypersphere sampler done')
         return data
 
 class PickleSampler():

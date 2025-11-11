@@ -5,66 +5,6 @@ import numpy as np
 
 CONNECT_PATH  = os.path.split(os.path.realpath(os.path.dirname(__file__)))[0]
 
-def get_computed_cls(cosmo,       # A computed CLASS model
-                     ell_array=[]
-                     ):
-
-    cls = cosmo.lensed_cl()
-
-    if len(ell_array) == 0:
-        # get parameters from CLASS model
-        BA                 = cosmo.get_background()
-        conformal_age_     = BA['conf. time [Mpc]'][-1]
-        der_pars           = cosmo.get_current_derived_parameters(['ra_rec','tau_rec'])
-        l_max              = len(cls['ell']) - 1
-        angular_rescaling_ = der_pars['ra_rec']/(conformal_age_ - der_pars['tau_rec'])
-        l_linstep          = 40
-        l_logstep          = 1.12
-    
-        # compute necessary ells like CLASS (see transfer module in CLASS)
-        increment = max(int(2*(np.power(l_logstep,angular_rescaling_) - 1)), 1)
-        l=[0,1,2]
-    
-        lin_increment = int(l_linstep*angular_rescaling_)
-        while l[-1] + increment < l_max:
-            if increment < lin_increment:
-                l.append(l[-1] + increment)
-                increment = max(int(l[-1]*(np.power(l_logstep,angular_rescaling_) - 1)), 1)
-            else:
-                l.append(l[-1] + lin_increment)
-        ell = np.array(l)
-    else:
-        ell = np.array(ell_array)
-
-    # create reduced dict of cls
-    new_cls = {'ell':ell}
-    for key, arr in cls.items():
-        if key != 'ell':
-            new_cls[key] = arr[ell]
-
-    return new_cls
-
-
-def get_z_idx(z):
-    z=z.copy()
-    if z[-1] > z[0]:
-        grid = np.logspace(np.log10(z[1]), np.log10(z[-1]), 99)
-    else:
-        grid = np.logspace(np.log10(z[0]), np.log10(z[-2]), 99)
-    z_idx = []
-    for zg in grid:
-        i = np.abs(z-zg).argmin()
-        z[i] = np.inf
-        z_idx.append(i)
-    j = len(z) - 1
-    while len(z_idx) < 100:
-        if j in z_idx:
-            j -= 1
-        else:
-            z_idx.append(j)
-    return np.array(sorted(z_idx))
-
-
 
 def create_output_folders(param,            # Parameter object
                           iter_num=None,    # Current iteration number
@@ -85,6 +25,8 @@ def create_output_folders(param,            # Parameter object
                 for output in param.output_Cl:
                     os.mkdir(os.path.join(path, f'N-{param.N}/Cl_{output}_data'))
                 for output in param.output_Pk:
+                    if type(output) == tuple:
+                        output = '-'.join(map(str,output))
                     os.mkdir(os.path.join(path, f'N-{param.N}/Pk_{output}_data'))
                 for output in param.output_bg:
                     output = output.replace('/','\\')
@@ -110,6 +52,8 @@ def create_output_folders(param,            # Parameter object
                 os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/Cl_{output}_data')}")
                 os.mkdir(os.path.join(path, f'number_{iter_num}/Cl_{output}_data'))
             for output in param.output_Pk:
+                if type(output) == tuple:
+                    output = '-'.join(map(str,output))
                 os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/Pk_{output}_data')}")
                 os.mkdir(os.path.join(path, f'number_{iter_num}/Pk_{output}_data'))
             for output in param.output_bg:
@@ -192,6 +136,8 @@ def combine_iterations_data(param,             # Parameter object
         combine_sets_of_data_files(os.path.join(path_i, f'Cl_{output}.txt'),
                                    os.path.join(path_j, f'Cl_{output}.txt'))
     for output in param.output_Pk:
+        if type(output) == tuple:
+            output = '-'.join(map(str,output))
         combine_sets_of_data_files(os.path.join(path_i, f'Pk_{output}.txt'),
                                    os.path.join(path_j, f'Pk_{output}.txt'), Pk=True)
     for output in param.output_bg:
@@ -237,28 +183,34 @@ def get_node_with_most_cpus():
     return max_node
 
 
-def get_covmat(path, param):
-    cov = np.loadtxt(path)
-    with open(path, 'r') as f:
-        header = f.readline().strip().replace('#','').replace(' ','').split(',')
+def get_covmat(param):
+    path = param.hypersphere_covmat
 
     params = param.parameters.keys()
     cov_new = np.zeros((len(params), len(params)))
-    indices = []
-    for i, p in enumerate(params):
-        try:
-            indices.append(header.index(p))
-        except ValueError:
-            indices.append(None)
-            cov_new[i,i] = ((param.parameters[p][1] - param.parameters[p][0])/10)**2
+    
+    if path is not None:
+        cov = np.loadtxt(path)
+        with open(path, 'r') as f:
+            header = f.readline().strip().replace('#','').replace(' ','').split(',')
 
-    for i, idx_i in enumerate(indices):
-        for j, idx_j in enumerate(indices):
-            if idx_i is not None and idx_j is not None:
-                cov_new[i,j] = cov[idx_i,idx_j]
+        indices = []
+        for i, p in enumerate(params):
+            try:
+                indices.append(header.index(p))
+            except ValueError:
+                indices.append(None)
+                cov_new[i,i] = ((param.parameters[p][1] - param.parameters[p][0])/10)**2
+
+        for i, idx_i in enumerate(indices):
+            for j, idx_j in enumerate(indices):
+                if idx_i is not None and idx_j is not None:
+                    cov_new[i,j] = cov[idx_i,idx_j]
 
     for i, p in enumerate(params):
         if p in param.sigma_guesses:
             cov_new[i,i] = param.sigma_guesses[p]**2
+        elif path is None:
+            cov_new[i,i] = ((param.parameters[p][1] - param.parameters[p][0])/10)**2
 
     return cov_new

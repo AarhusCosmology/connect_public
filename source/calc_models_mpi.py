@@ -12,12 +12,10 @@ sampling     = sys.argv[3]
 sys.path.insert(0,CONNECT_PATH)
 
 import numpy as np
-import classy
-from scipy.interpolate import CubicSpline
 from mpi4py import MPI
 
 from source.default_module import Parameters
-from source.tools import get_computed_cls, get_z_idx, get_covmat
+from source.cosmic_solvers import ClassModule, CambModule
 
 param_file = os.path.join(CONNECT_PATH, param_file)
 param        = Parameters(param_file)
@@ -39,6 +37,13 @@ N_slaves = comm.Get_size()-1
 
 get_slave = itertools.cycle(range(1,N_slaves+1))
 
+
+if param.cosmic_solver == 'class':
+    cosmic_solver = ClassModule(param)
+elif param.cosmic_solver == 'camb':
+    cosmic_solver = CambModule(param)
+
+
 def excepthook(etype, value, tb):
     if tb is not None and value not in [None, '']:
         print('Traceback (most recent call last):', file=sys.stderr)
@@ -48,17 +53,6 @@ def excepthook(etype, value, tb):
 sys.excepthook = excepthook
 
 
-
-if len(param.output_Cl) > 0:
-    cosmo = classy.Class()
-    input_params = {'output':'tCl, lCl, pCl', 'lensing':'yes'}
-    if 'l_max_scalars' in param.extra_input:
-        input_params.update({'l_max_scalars':param.extra_input['l_max_scalars']})
-    cosmo.set(input_params)
-    cosmo.compute()
-    cls = get_computed_cls(cosmo)
-    global_ell = cls['ell']
-    
 
 ## rank == 0 (master)
 if rank == 0:
@@ -126,6 +120,8 @@ else:
     for Cl in param.output_Cl:
         out_dirs_Cl.append(os.path.join(directory, f'Cl_{Cl}_data/Cl_{Cl}_data_{rank}.txt'))
     for Pk in param.output_Pk:
+        if type(Pk) == tuple:
+            Pk = '-'.join(map(str,Pk))
         out_dirs_Pk.append(os.path.join(directory, f'Pk_{Pk}_data/Pk_{Pk}_data_{rank}.txt'))
     for bg in param.output_bg:
         bg = bg.replace('/','\\')
@@ -177,88 +173,28 @@ else:
         if type(model).__name__ == 'str':
             break
 
-        # Set required CLASS parameters
-        params = {}
-        if len(param.output_Cl) > 0:
-            params['output']            = 'tCl,lCl'
-            params['lensing']           = 'yes'
-            if any("b" in s or "e" in s for s in param.output_Cl):
-                params['output']       += ',pCl'
-
-        params.update(param.extra_input)
-        for i, par_name in enumerate(param_names):
-            params[par_name] = model[i]
-
-        if 'P_k_max_h/Mpc' in params:
-            val = params.pop('P_k_max_h/Mpc')
-            params['P_k_max_1/Mpc'] = val*0.67556
-        if len(param.output_Pk) > 0:
-            if 'output' in params:
-                params['output']       += ',mPk'
-            else:
-                params['output']        = 'mPk'
-            params['P_k_max_1/Mpc']     = 2.5*max(param.k_grid)
-            params['z_max_pk']          = max(param.z_Pk_list)
-
-        if 'sigma8' in param.output_derived:
-            if not 'mPk' in params['output']:
-                if len(params['output']) > 0:
-                    params['output']   += ',mPk'
-                else:
-                    params['output']    = 'mPk'
-            if not 'P_k_max_1/Mpc' in params:
-                params['P_k_max_1/Mpc'] = 1.
-
-        signal.alarm(param.max_time_for_theory) # CLASS computations must not take longer than this amount of seconds (default is 200)
         try:
-            cosmo = classy.Class()
-            cosmo.set(params)
-            cosmo.compute()
-            if len(param.output_bg) > 0:
-                bg = cosmo.get_background()
-                if len(param.z_bg_list) > 0:
-                    z_bg = param.z_bg_list
-                else:
-                    bg_idx = get_z_idx(bg['z'])
-                    z_bg = bg['z'][bg_idx]
-            if len(param.output_th) > 0:
-                th = cosmo.get_thermodynamics()
-                if len(param.z_th_list) > 0:
-                    z_th = param.z_th_list
-                else:
-                    th_idx = get_z_idx(th['z'])
-                    z_th = th['z'][th_idx]
-            if len(param.output_derived) > 0:
-                der = cosmo.get_current_derived_parameters(param.output_derived)
-            if len(param.output_Cl) > 0:
-                cls = get_computed_cls(cosmo, ell_array=global_ell)
-                if any(np.isnan(cls[key]).any() for key in cls):
-                    raise classy.CosmoComputationError(
-                        'Class computation completed with NaN values in CMB power spectra.')
-                ell = cls['ell'][2:]
-            if len(param.output_Pk) > 0:
-                pks = {}
-                for pk in param.output_Pk:
-                    pks[pk] = {}
-                    for z in param.z_Pk_list:
-                        pks[pk][z] = []
-                        for k in param.k_grid:
-                            pks[pk][z].append(eval(f'cosmo.{pk}(k,z)'))
+            signal.alarm(param.max_time_for_theory) # CLASS computations must not take longer than this amount of seconds (default is 200)
+
+            cosmic_solver.set_parameters(model)
+            cosmic_solver.compute_outputs()
+            outputs = cosmic_solver.get_outputs()
+
             success = True
-        except classy.CosmoComputationError as e:
-            print('The following model failed in CLASS:', flush=True)
-            print(params, flush=True)
+        except cosmic_solver.computation_exception as e:
+            print(f'The following model failed in {param.cosmic_solver.upper()}:', flush=True)
+            print(cosmic_solver.params, flush=True)
             success = False
             print(e.message)
-        except classy.CosmoSevereError as e:
-            print('The following model failed in CLASS:', flush=True)
-            print(params, flush=True)
+        except cosmic_solver.severe_exception as e:
+            print(f'The following model failed in {param.cosmic_solver.upper()}:', flush=True)
+            print(cosmic_solver.params, flush=True)
             success = False
             print(e.message)
         except Exception as e:
             if str(e) == 'timeout':
                 print('The following model took too long to complete:', flush=True)
-                print(params, flush=True)
+                print(cosmic_solver.params, flush=True)
                 success = False
             else:
                 raise e
@@ -268,10 +204,10 @@ else:
         if success:
             # Write data to data files
             for out_dir, output in zip(out_dirs_Cl, param.output_Cl):
-                par_out = cls[output][2:]*ell*(ell+1)/(2*np.pi)
+                par_out = outputs['Cl'][output]
                 with open(out_dir, 'a') as f:
-                    for i, l in enumerate(ell):
-                        if i != len(ell)-1:
+                    for i, l in enumerate(outputs['Cl']['ell']):
+                        if i != len(outputs['Cl']['ell'])-1:
                             f.write(str(l)+'\t')
                         else:
                             f.write(str(l)+'\n')
@@ -283,13 +219,13 @@ else:
 
             for out_dir, output in zip(out_dirs_Pk, param.output_Pk):
                 with open(out_dir, 'a') as f:
-                    for i, k in enumerate(param.k_grid):
-                        if i != len(param.k_grid)-1:
+                    for i, k in enumerate(outputs['Pk']['k']):
+                        if i != len(outputs['Pk']['k'])-1:
                             f.write(str(k)+'\t')
                         else:
                             f.write(str(k)+'\n')
                     for z in param.z_Pk_list:
-                        par_out = pks[output][z]
+                        par_out = outputs['Pk'][output][z]
                         for i, p in enumerate(par_out):
                             if i != len(par_out)-1:
                                 f.write(str(p)+'\t')
@@ -299,7 +235,7 @@ else:
             if len(param.output_derived) > 0:
                 par_out = []
                 for output in param.output_derived:
-                    par_out.append(der[output])
+                    par_out.append(outputs['derived'][output])
                 with open(out_dir_derived, 'a') as f:
                     for i, p in enumerate(par_out):
                         if i != len(par_out)-1:
@@ -308,13 +244,10 @@ else:
                             f.write(str(p)+'\n')
 
             for out_dir, output in zip(out_dirs_bg, param.output_bg):
-                if len(param.z_bg_list) > 0:
-                    par_out = CubicSpline(np.flip(bg['z']), np.flip(bg[output]), bc_type='natural')(param.z_bg_list)
-                else:
-                    par_out = bg[output][bg_idx]
+                par_out = outputs['bg'][output]
                 with open(out_dir, 'a') as f:
-                    for i, z in enumerate(z_bg):
-                        if i != len(z_bg)-1:
+                    for i, z in enumerate(outputs['bg']['z']):
+                        if i != len(outputs['bg']['z'])-1:
                             f.write(str(z)+'\t')
                         else:
                             f.write(str(z)+'\n')
@@ -325,13 +258,10 @@ else:
                             f.write(str(p)+'\n')
 
             for out_dir, output in zip(out_dirs_th, param.output_th):
-                if len(param.z_th_list) > 0:
-                    par_out = CubicSpline(th['z'], th[output], bc_type='natural')(param.z_th_list)
-                else:
-                    par_out = th[output][th_idx]
+                par_out = outputs['th'][output]
                 with open(out_dir, 'a') as f:
-                    for i, z in enumerate(z_th):
-                        if i != len(z_th)-1:
+                    for i, z in enumerate(outputs['th']['z']):
+                        if i != len(outputs['th']['z'])-1:
                             f.write(str(z)+'\t')
                         else:
                             f.write(str(z)+'\n')
@@ -342,11 +272,7 @@ else:
                             f.write(str(p)+'\n')
         
             for out_dir, output in zip(out_dirs_ex, param.extra_output):
-                par_out = eval(param.extra_output[output])
-                try:
-                    len(par_out)
-                except:
-                    par_out = [par_out]
+                par_out = outputs['extra'][output]
                 with open(out_dir, 'a') as f:
                      for i, p in enumerate(par_out):
                         if i != len(par_out)-1:
@@ -361,7 +287,6 @@ else:
                     else:
                         f.write(str(m)+'\n')
 
-        cosmo.struct_cleanup()
 
 MPI.Finalize()
 sys.exit(0)

@@ -8,23 +8,35 @@ from cobaya.log import LoggedError
 from mpi4py import MPI
 import numpy as np
 
-from source.default_module import Parameters
-
 model = sys.argv[1]
 iteration = sys.argv[2]
 param_file = sys.argv[3]
 temperature = np.float64(sys.argv[4])
+CONNECT_PATH = sys.argv[5]
+
+sys.path.insert(1, CONNECT_PATH)
+from source.default_module import Parameters
 
 param = Parameters(param_file)
 
 path = {}
-with open('mcmc_plugin/connect.conf','r') as f:
+
+"""
+if param.cosmic_solver == 'class':
+    config_file = 'mcmc_plugin/config_files/class.conf'
+    cosmo_root = os.path.join(CONNECT_PATH, 'mcmc_plugin/class_wrapper')
+elif param.cosmic_solver == 'camb':
+    config_file = 'mcmc_plugin/config_files/camb.conf'
+    cosmo_root = os.path.join(CONNECT_PATH, 'mcmc_plugin/camb_wrapper')
+# set the correct path to wrapper in environment variable in order for cobaya to find it
+os.environ['CONNECT_CLASSY_PATH'] = cosmo_root
+"""
+
+with open(os.path.join(CONNECT_PATH, 'mcmc_plugin/config_files/connect.conf'), 'r') as f:
     for line in f:
         exec(line)
 
 path_clik = os.path.join(Path(path['clik']).parents[2], 'baseline/plc_3.0/')
-CONNECT_PATH = Path(path['cosmo']).parents[0]
-
 directory = os.path.join(CONNECT_PATH, f'data/{param.jobname}/number_{iteration}/')
 
 comm = MPI.COMM_WORLD
@@ -173,18 +185,35 @@ for par in param.output_derived:
         info['params'][par]['latex'] = par
 
 
+if rank == 0:
+    print("Rank 0: starting run()")
 
-updated_info, sampler = run(info)
+updated_info, sampler = run(info, debug=True)
 
-list_of_chains = comm.gather(sampler.products()["sample"].to_numpy(), root=0)
+print(f"Rank {rank}: sampling done")
+
+try:
+    samples = sampler.products()["sample"]
+    print(f"Rank {rank}: samples extracted, shape = {samples.to_numpy().shape}")
+except Exception as e:
+    print(f"Rank {rank}: error extracting samples: {e}")
+    samples = None
+
+print(f"Rank {rank}: entering gather()")
+list_of_chains = comm.gather(samples.to_numpy(), root=0)
+print(f"Rank {rank}: finished gather()")
+
+#list_of_chains = comm.gather(sampler.products()["sample"].to_numpy(), root=0)
 
 if rank == 0:
-    names_dict = {'sampled': sampler.products()["sample"].sampled_params,
-                  'derived': sampler.products()["sample"].derived_params,
-                  'all'    : sampler.products()["sample"].columns}
+    print("Rank 0: saving all chains")
+    names_dict = {'sampled': samples.sampled_params,
+                  'derived': samples.derived_params,
+                  'all'    : samples.columns}
     all_chains = {'chains' : list_of_chains,
                   'names'  : names_dict}
-
+    print(f"Rank 0: chains collected, number of chains = {len(all_chains['chains'])}")
     with open(directory + 'cobaya_all_chains.pkl','wb') as f:
         pkl.dump(all_chains,f)
+    print("Rank 0: chains saved successfully")
 

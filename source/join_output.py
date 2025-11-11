@@ -71,6 +71,8 @@ class CreateSingleDataFile():
                                                 f.write(str(c)+'\n')
 
         for output in self.param.output_Pk:
+            if type(output) == tuple:
+                output = '-'.join(map(str,output))
             output_dict = {'k': None, 'Pk': {}}
             for z in self.param.z_Pk_list:
                 output_dict['Pk'][z]=[]

@@ -9,28 +9,38 @@ import tensorflow as tf
 import numpy as np
 
 FILE_PATH = os.path.realpath(os.path.dirname(__file__))
-CONNECT_PATH = Path(FILE_PATH).parents[3]
+CONNECT_PATH = Path(FILE_PATH).parents[4]
 
-p_backup = [(i,sys.path.pop(i)) for i, p in enumerate(sys.path) if 'connect_disguised_as_classy' in p]
-m_backup = sys.modules.pop('classy')
+p_backup = [(i,sys.path.pop(i)) for i, p in reversed(list(enumerate(sys.path))) if 'connect_disguised_as_classy' in p]
+try:
+    m_backup = sys.modules.pop('classy')
+except:
+    m_backup = None
 
 import classy as real_classy
 from classy import CosmoSevereError, CosmoComputationError
 
 
 class Class(real_classy.Class):
+    def __new__(cls, *args, **kwargs):
+        """
+        We intercept construction here so that we can call the
+        Cython base type's allocator without passing extra arguments
+        (which would be forwarded to __cinit__ and cause errors).
+        """
+        # Allocate instance without passing args to Cython
+        instance = super(Class, cls).__new__(cls)
+        return instance
+
+    
     def __init__(self, input_parameters={}, model_name=None):
         self.model = None
-        try:
-            self.model_name = input_parameters.pop('connect_model')
-        except:
-            pass
         super(Class, self).__init__()
-        super(Class, self).set(input_parameters)
+        self.compute_class_background = False
+        self.set(input_parameters)
         if not model_name == None:
             self.model_name = model_name
         self._model_name = model_name
-        self.compute_class_background = False
 
             
     @property
@@ -139,12 +149,11 @@ class Class(real_classy.Class):
                 if par[-12:] == '_log10_prior':
                     log10_par = input_parameters.pop(par)
                     input_parameters[par[:-12]]=10**log10_par
-            try:
+            if 'connect_model' in input_parameters:
                 self.model_name = input_parameters.pop('connect_model')
-            except:
-                pass
-            try:
+            if 'compute_class_background' in input_parameters:
                 self.compute_class_background = input_parameters.pop('compute_class_background')
+            if self.compute_class_background and self.model != None:
                 values_not_matching = {}
                 parameters_not_set = {}
                 for key in self.info['extra_input']:
@@ -160,9 +169,6 @@ class Class(real_classy.Class):
                     warnings.warn("The following parameters have values that differ from what the network has been trained on. The values will be overwritten by the ones used to train the network:\n" +
                                   "\n".join([f"        - {key} = {val[1]}\t->\t{key} = {val[0]}" for key, val in values_not_matching.items()]))
                 input_parameters.update(self.info['extra_input'])
-                input_parameters.update({'output': 'tCl,lCl,pCl,mPk', 'lensing': 'yes'})
-            except:
-                pass
             super(Class, self).set(input_parameters)
 
 
@@ -221,7 +227,11 @@ class Class(real_classy.Class):
                 Cl_computed = Cl_computed
                 Cl_spline = CubicSpline(self.ell_computed, Cl_computed, bc_type='natural', extrapolate=True)
                 Cl = Cl_spline(ell)
-            out_dict[output] = np.insert(Cl[1:]*2*np.pi/(ell[1:]*(ell[1:]+1)), 0, 0.0) # Convert back to Cl form
+            if output == 'pp':
+                factor = (ell[1:]*(ell[1:]+1))**2/(2*np.pi)
+            else:
+                factor = ell[1:]*(ell[1:]+1)/(2*np.pi)
+            out_dict[output] = np.insert(Cl[1:]/factor, 0, 0.0) # Convert back to Cl form
 
         out_dict['ell'] = ell
         null_out = np.ones(len(ell), dtype=np.float32) * 1e-15
@@ -277,7 +287,7 @@ class Class(real_classy.Class):
         if store_value:
             self.Tcmb = pow( 3*omega_g*c**3*1.e10 / (sigma_B*_Mpc_over_m_**2*32*np.pi*G), 1/4)
         return pow( 3*omega_g*c**3*1.e10 / (sigma_B*_Mpc_over_m_**2*32*np.pi*G), 1/4)
-        
+
 
     def get_current_derived_parameters(self, names):
         if not hasattr(self, 'output_predict'):
@@ -314,7 +324,7 @@ class Class(real_classy.Class):
             if not pars_update == {}:
                 super(Class,self).set(pars_update)
                 super(Class,self).compute(level=[level])
-
+        
         out_dict = super(Class,self).get_current_derived_parameters(list(class_names))
         for name in names:
             idx = self.output_interval['derived'][name]
@@ -325,6 +335,8 @@ class Class(real_classy.Class):
 
 
     def get_background(self):
+        if self.compute_class_background:
+            return super(Class, self).get_background()
         if not hasattr(self, 'output_predict'):
             self.compute()
 
@@ -432,11 +444,11 @@ class Class(real_classy.Class):
                     self.cached_splines['anugular_distance'] = spline
                     return float(spline(z))
             elif self.compute_class_background:
-                return super(Class, self).Hubble(z)
+                return super(Class, self).angular_distance(z)
             else:
                 raise ValueError(f"The requested redshift of {z} was not emulated and there are too few values for interpolation. You can use CLASS for all background computations by setting 'compute_class_background' to True.")
         elif self.compute_class_background:
-            return super(Class, self).Hubble(z)
+            return super(Class, self).angular_distance(z)
         else:
             raise ValueError("The angular diameter distance has not been emulated. You can use CLASS for all background computations by setting 'compute_class_background' to True.")
 
@@ -455,6 +467,6 @@ class Class(real_classy.Class):
     def struct_cleanup(self):
         super(Class,self).struct_cleanup()
 
-for i, p in p_backup:
+for i, p in reversed(list(p_backup)):
     sys.path.insert(i,p)
 sys.modules['classy'] = m_backup

@@ -75,6 +75,8 @@ class Training():
         if len(self.param.output_Pk) > 0:
             output_interval['Pk']  = {}
         for output in self.param.output_Pk:
+            if type(output) == tuple:
+                output = '-'.join(map(str, output))
             output_interval['Pk'][output] = {}
             out = {}
             for z in self.param.z_Pk_list:
@@ -315,13 +317,15 @@ class Training():
 
         ### Prepare output info dictionary for model ###
         self.output_info = {'input_names':    paramnames,
-                            'interval':       output_interval}
+                            'interval':       output_interval,
+                            'cosmic_solver':  self.param.cosmic_solver}
         if len(self.param.output_Cl) > 0:
             self.output_info['ell']       = list(self.output_ell)
             self.output_info['output_Cl'] = self.param.output_Cl
         if len(self.param.output_Pk) > 0:
             self.output_info['k_grid']    = list(self.output_k_grid)
-            self.output_info['output_Pk'] = self.param.output_Pk
+            # if pk output is a tuple, convert to string py joining elements with '-'
+            self.output_info['output_Pk'] = [('-'.join(map(str, output)) if type(output) == tuple else output) for output in self.param.output_Pk]
         if len(self.param.output_bg) > 0:
             self.output_info['z_bg']      = list(self.output_z_bg)
             self.output_info['output_bg'] = self.param.output_bg
@@ -394,17 +398,25 @@ class Training():
         self.input_normaliser.adapt(np.concatenate([x for x, y in self.train_dataset], axis=0))
 
 
-    def train_model(self, epochs=None, output_file=None):
+    def train_model(self, epochs=None, output_file=None, previous_model=None):
         if epochs != None:
             self.param.epochs = int(epochs)
 
-        adam = tf.keras.optimizers.Adam(learning_rate=0.0001,
-                                        beta_1=0.9,
-                                        beta_2=0.999,
-                                        epsilon=1e-4,
-                                        amsgrad=True,
-                                        name='Adam')
+        if self.param.warm_start_model is not None:
+            previous_model = self.param.warm_start_model
 
+        if sys.platform == 'darwin':
+            optimiser = tf.keras.optimizers.legacy.Adam
+        else:
+            optimiser = tf.keras.optimizers.Adam
+
+        adam = optimiser(learning_rate=0.0001,
+                         beta_1=0.9,
+                         beta_2=0.999,
+                         epsilon=1e-4,
+                         amsgrad=True,
+                         name='Adam')
+            
         self.training_success = False
         training_try_number = 0
 
@@ -427,10 +439,25 @@ class Training():
                                      activation=self.param.activation_function,
                                      num_hidden_layers=self.param.N_hidden_layers,
                                      ell_computed=ell_computed)
-            
+
             self.model.compile(optimizer=adam,
                                loss=self.loss_fun)
 
+            if self.param.warm_start and previous_model is not None:
+                old_model = tf.keras.models.load_model(f'trained_models/{previous_model}', compile=False)
+                _ = self.model(tf.zeros((1, len(self.param.parameters.keys()))))
+                # Safety check
+                old_vars = old_model.trainable_variables
+                new_vars = self.model.trainable_variables
+                # Verify matching shapes
+                for ov, nv in zip(old_vars, new_vars):
+                    if ov.shape != nv.shape:
+                        print(f"Shape mismatch: {ov.name} {ov.shape} vs {nv.name} {nv.shape}")                
+                # Copy trainable variables
+                for ov, nv in zip(old_vars, new_vars):
+                    nv.assign(ov)
+
+            
         self.history = self.model.fit(self.train_dataset,
                                       epochs=self.param.epochs,
                                       validation_data=self.val_dataset,
@@ -446,6 +473,7 @@ class Training():
         self.model.train_normalise = False
         self.model.raw_info = str(self.output_info)
         self.model.info_dict = self.model.convert_types_to_tf(self.output_info)
+
 
     def save_model(self):
         if not getattr(self, 'model', None):

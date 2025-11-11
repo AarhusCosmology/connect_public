@@ -25,7 +25,7 @@ import matplotlib
 import PlanckLogLinearScale
 
 # index of test data to use for cmb spectra
-n=0
+n='random'
 
 # color of axes and all text in the error plot
 color_of_axis_and_text = 'k'
@@ -42,7 +42,8 @@ name = sys.argv[1]
 model = tf.keras.models.load_model(name, compile=False)
 with open(name+'/test_data.pkl', 'rb') as f:
     test_data = pkl.load(f)
-
+if n == 'random':
+    n = np.random.randint(0, len(test_data[0]))
 
 
 try:
