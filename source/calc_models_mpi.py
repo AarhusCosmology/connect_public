@@ -9,6 +9,7 @@ os.environ['UCX_LOG_LEVEL'] = 'error'
 param_file   = sys.argv[1]
 CONNECT_PATH = sys.argv[2]
 sampling     = sys.argv[3]
+recompute    = bool(sys.argv[4])
 sys.path.insert(0,CONNECT_PATH)
 
 import numpy as np
@@ -56,14 +57,15 @@ sys.excepthook = excepthook
 
 ## rank == 0 (master)
 if rank == 0:
-    if sampling == 'iterative':
+    if recompute:
+        data = np.loadtxt(os.path.join(directory, 'model_params.txt'), skiprows=1)
+    
+    elif sampling == 'iterative':
         exec(f'from source.mcmc_samplers.{param.mcmc_sampler} import {param.mcmc_sampler}')
         _locals = {}
         exec(f'mcmc = {param.mcmc_sampler}(param, CONNECT_PATH)', locals(), _locals)
         mcmc = _locals['mcmc']
-
         data = mcmc.import_points_from_chains(iteration)
-
         
     elif sampling == 'lhc':
         from source.ini_samplers import LatinHypercubeSampler
