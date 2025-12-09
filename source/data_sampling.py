@@ -196,10 +196,10 @@ class Sampling():
                 f.write(f"\njobname = '{self.param.jobname}'")
         self.param.param_file = os.path.join(self.CONNECT_PATH, self.data_path, 'log_connect.param')
 
-    def call_calc_models(self, sampling='lhc'):
+    def call_calc_models(self, sampling='lhc', recompute=True):
         os.environ["OMP_NUM_THREADS"] = str(self.N_cpus_per_task)
         os.environ["PMIX_MCA_gds"] = "hash"
-        sp.check_call(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split())
+        sp.check_call(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling} {recompute}".split())
         os.environ["OMP_NUM_THREADS"] = "1"
 
     def train_neural_network(self, sampling='lhc', output_file=None):
@@ -232,3 +232,9 @@ class Sampling():
                 if M-1 > 0:
                     model_name += f'_{M-1}'
         return model_name
+
+    def recompute_model_data(self):
+        i = max([int(f.split('number_')[-1]) for f in os.listdir(self.data_path) if f.startswith('number')])
+        create_output_folders(self.param, iter_num=i, reset=False)
+        self.call_calc_models(sampling=self.param.sampling, recompute=True)
+        join_data_files(self.param)

@@ -116,6 +116,10 @@ if keyword == 'train':
     join_output_files()
     from source.train_network import Training
     tr = Training(param, CONNECT_PATH)
+    if param.recompute_outputs:
+        from source.data_sampling import Sampling
+        s = Sampling(param_file, CONNECT_PATH)
+        s.recompute_model_data()
     try:
         tr.train_model(epochs=sys.argv[3])
     except:

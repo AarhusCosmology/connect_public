@@ -26,6 +26,7 @@ class Parameters():
                    'normalisation_method' :  ( 'standardisation'       ,  str          ),
                    'warm_start'           :  ( False                   ,  bool         ),
                    'warm_start_model'     :  ( None                    ,  str          ),
+                   'recompute_outputs'    :  ( False                   ,  bool         ),
                    ### Sampling parameters
                    'parameters'           :  ( {}                      ,  dict         ),
                    'cosmic_solver'        :  ( 'class'                 ,  str          ),
