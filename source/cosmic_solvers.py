@@ -1,27 +1,28 @@
 import numpy as np
 from scipy.interpolate import CubicSpline
 
+
+name_dict = {'class': 'ClassModule',
+             'camb':  'CambModule'}
+
+
 class ClassModule():
-    def __init__(self, param):
+    def __init__(self, param, get_defaults=False):
         import classy
         self.cosmo = classy.Class()
         self.param = param
-        self.param_names = list(self.param.parameters.keys())
-        if len(self.param.ell_grid) > 0:
-            self.global_ell = np.array(self.param.ell_grid)
-        else:
-            try:
-                lmax = self.param.extra_input['l_max_scalars']
-            except:
-                lmax = 2508
-            self.cosmo.set({'l_max_scalars': lmax,
-                            'output': 'tCl lCl pCl',
-                            'lensing': 'yes'})
-            self.cosmo.compute()
-            cls = self.get_computed_cls()
-            self.global_ell = cls['ell']
-            self.cosmo.struct_cleanup()
+        if get_defaults:
+            return
 
+        self.param_names = list(self.param.parameters.keys())
+        self.initialise_params()
+
+        # exeptions:
+        self.severe_exception = classy.CosmoSevereError
+        self.computation_exception = classy.CosmoComputationError
+
+
+    def initialise_params(self):
         self.params = {}
 
         if len(self.param.output_Cl) > 0:
@@ -50,9 +51,82 @@ class ClassModule():
             if not 'P_k_max_1/Mpc' in self.params:
                 self.params['P_k_max_1/Mpc'] = 1.
 
-        # exeptions:
-        self.severe_exception = classy.CosmoSevereError
-        self.computation_exception = classy.CosmoComputationError
+
+    def default_parameters(self):
+        ell_grid, z_bg, z_th = self.compute_global_grids()
+        default = {
+                   'output_Cl'            :  ( ['tt']                  ,  list         ),
+                   'ell_grid'             :  ( ell_grid                ,  list         ),
+                   'output_Pk'            :  ( []                      ,  list         ),
+                   'k_grid'               :  ( self.get_k_grid()       ,  list         ),
+                   'z_Pk_list'            :  ( [0.0]                   ,  list         ),
+                   'output_bg'            :  ( []                      ,  list         ),
+                   'z_bg_list'            :  ( z_bg                    ,  list         ),
+                   'output_th'            :  ( []                      ,  list         ),
+                   'z_th_list'            :  ( z_th                    ,  list         ),
+                   'extra_output'         :  ( {}                      ,  dict         ),
+                   'output_derived'       :  ( []                      ,  list         ),
+                   }
+        return default
+
+    def output_structures(self):
+        structure_dict = {
+                          'Scalar': {'list':  ['output_derived'],
+                                     'weight':[lambda x: np.ones(x.shape[0])*1e+4]
+                                     },
+                          '1D':     {'list':  ['output_Cl', 'output_bg', 'output_th', 'extra_output'],
+                                     'x_arr': ['ell_grid', 'z_bg_list', 'z_th_list', None],
+                                     'x_keys':['ell',      'z_bg',      'z_th',      None],
+                                     'weight':[lambda l: l,
+                                               lambda z: np.clip(1e+3*np.power(np.clip(z, a_min=1e-15, a_max=None), -0.3),
+                                                                 a_min=0.5, a_max=3e+3),
+                                               lambda z: np.clip(1e+3*np.power(np.clip(z, a_min=1e-15, a_max=None), -0.3),
+                                                                 a_min=0.5, a_max=3e+3),
+                                               lambda x: np.ones(x.shape[0])*1e+4]
+                                     },
+                          '2D':     {'list':  ['output_Pk'],
+                                     'x_arr': ['k_grid'],
+                                     'x_keys':['k_grid'],
+                                     'y_arr': ['z_Pk_list'],
+                                     'y_keys':['z'],
+                                     'weight':[lambda k, z: k**(1/3) * 1500]
+                                     }
+                          }
+        return structure_dict
+
+    def get_k_grid(self):
+        k_grid = np.sort(np.concatenate([np.logspace(np.log10(5e-6),  np.log10(5e-5),  15),
+                                         np.logspace(np.log10(1e-4),  np.log10(0.008), 8),
+                                         np.logspace(np.log10(0.76),  np.log10(5),     17),
+                                         np.logspace(np.log10(0.009), np.log10(0.75),  60)]))
+        k_grid *= 0.67556 # value of h in LCDM
+        return k_grid
+
+    def compute_global_grids(self):
+        try:
+            lmax = self.param.extra_input['l_max_scalars']
+        except:
+            lmax = 2508
+        self.cosmo.set({'l_max_scalars': lmax,
+                        'output': 'tCl lCl pCl',
+                        'lensing': 'yes',
+                        'H0': 67.8,
+                        'omega_b': 0.0223,
+                        'omega_cdm': 0.119,
+                        'A_s': 2.1e-9,
+                        'n_s': 0.965,
+                        'tau_reio': 0.0543})
+        self.cosmo.compute()
+        cls = self.get_computed_cls()
+        bg = self.cosmo.get_background()
+        th = self.cosmo.get_thermodynamics()
+        bg_idx = self.get_z_idx(bg['z'])
+        z_bg = bg['z'][bg_idx]
+        th_idx = self.get_z_idx(th['z'])
+        z_th = th['z'][th_idx]
+        ell_grid = cls['ell']
+        self.cosmo.struct_cleanup()
+        return ell_grid, z_bg, z_th
         
     def set_parameters(self, model):
         for i, par_name in enumerate(self.param_names):
@@ -67,32 +141,18 @@ class ClassModule():
         
         if len(self.param.output_bg) > 0:
             bg = self.cosmo.get_background()
-            if len(self.param.z_bg_list) > 0:
-                z_bg = self.param.z_bg_list
-            else:
-                bg_idx = self.get_z_idx(bg['z'])
-                z_bg = bg['z'][bg_idx]
+            z_bg = self.param.z_bg_list
             outputs['bg'] = {}
             for output in self.param.output_bg:
-                if len(self.param.z_bg_list) > 0:
-                    outputs['bg'][output] = CubicSpline(np.flip(bg['z']), np.flip(bg[output]), bc_type='natural')(self.param.z_bg_list)
-                else:
-                    outputs['bg'][output] = bg[output][bg_idx]
+                outputs['bg'][output] = CubicSpline(np.flip(bg['z']), np.flip(bg[output]), bc_type='natural')(self.param.z_bg_list)
             outputs['bg']['z'] = z_bg
 
         if len(self.param.output_th) > 0:
             th = self.cosmo.get_thermodynamics()
-            if len(self.param.z_th_list) > 0:
-                z_th = self.param.z_th_list
-            else:
-                th_idx = self.get_z_idx(th['z'])
-                z_th = th['z'][th_idx]
+            z_th = self.param.z_th_list
             outputs['th'] = {}
             for output in self.param.output_th:
-                if len(self.param.z_th_list) > 0:
-                    outputs['th'][output] = CubicSpline(th['z'], th[output], bc_type='natural')(self.param.z_th_list)
-                else:
-                    outputs['th'][output] = th[output][th_idx]
+                outputs['th'][output] = CubicSpline(th['z'], th[output], bc_type='natural')(self.param.z_th_list)
             outputs['th']['z'] = z_th
 
         if len(self.param.output_derived) > 0:
@@ -102,31 +162,27 @@ class ClassModule():
                 outputs['derived'][output] = der[output]
 
         if len(self.param.output_Cl) > 0:
-            cls = self.get_computed_cls(ell_array=self.global_ell)
+            cls = self.get_computed_cls(ell_array=self.param.ell_grid)
             if any(np.isnan(cls[key]).any() for key in cls):
                 raise self.computation_exception(
                     'Class computation completed with NaN values in CMB power spectra.')
-            ell = cls['ell'][2:]
+            ell = cls['ell']
             outputs['Cl'] = {}
             for output in self.param.output_Cl:
-                outputs['Cl'][output] = cls[output][2:]*ell*(ell+1)/(2*np.pi)
+                outputs['Cl'][output] = cls[output]*ell*(ell+1)/(2*np.pi)
                 if output == 'pp':
                     outputs['Cl'][output] *= ell*(ell+1)
             outputs['Cl']['ell'] = ell
 
         if len(self.param.output_Pk) > 0:
-            pks = {}
-            for pk in self.param.output_Pk:
-                pks[pk] = {}
-                for z in self.param.z_Pk_list:
-                    pks[pk][z] = []
-                    for k in self.param.k_grid:
-                        pks[pk][z].append(eval(f'self.cosmo.{pk}(k,z)'))
             outputs['Pk'] = {}
-            for output in self.param.output_Pk:
-                outputs['Pk'][output] = {}
+            for pk in self.param.output_Pk:
+                outputs['Pk'][pk] = {}
                 for z in self.param.z_Pk_list:
-                    outputs['Pk'][output][z] = pks[output][z]
+                    pk_array = []
+                    for k in self.param.k_grid:
+                        pk_array.append(eval(f'self.cosmo.{pk}(k,z)'))
+                    outputs['Pk'][pk][z] = pk_array
             outputs['Pk']['k'] = self.param.k_grid    
 
 
@@ -157,7 +213,7 @@ class ClassModule():
     
             # compute necessary ells like CLASS (see transfer module in CLASS)
             increment = max(int(2*(np.power(l_logstep,angular_rescaling_) - 1)), 1)
-            l=[0,1,2]
+            l=[2]
     
             lin_increment = int(l_linstep*angular_rescaling_)
             while l[-1] + increment < l_max:
@@ -178,7 +234,7 @@ class ClassModule():
     
         return new_cls
 
-    def get_z_idx(z):
+    def get_z_idx(self, z):
         z=z.copy()
         if z[-1] > z[0]:
             grid = np.logspace(np.log10(z[1]), np.log10(z[-1]), 99)
@@ -201,33 +257,26 @@ class ClassModule():
 
 
 class CambModule():
-    def __init__(self, param):
+    def __init__(self, param, get_defaults=False):
         import camb
         self.camb = camb
         self.param = param
+        if get_defaults:
+            return
         self.param_names = list(self.param.parameters.keys())
-        if len(self.param.ell_grid) > 0:
-            self.global_ell = np.array(self.param.ell_grid)
-        else:
-            try:
-                self.lmax = self.param.extra_input['lmax']
-            except:
-                self.lmax = 2508
-            pars = self.camb.set_params(ombh2=0.022,
-                                        omch2=0.12,
-                                        H0=67.5,
-                                        As=2e-9,
-                                        ns=0.965,
-                                        tau=0.06,
-                                        lmax =  self.lmax,
-                                        WantCls = True,
-                                        Want_CMB = True,
-                                        DoLensing = True)
-            self.results = self.camb.get_results(pars)
-            cls = self.get_computed_cls()
-            self.global_ell = cls['ell']
+        self.initialise_params()
 
+        # exeptions:
+        self.severe_exception = camb.CAMBError
+        self.computation_exception = camb.CAMBFortranError
+
+    def initialise_params(self):
         self.params = {}
+
+        try:
+            self.lmax = self.param.extra_input['lmax']
+        except:
+            self.lmax = 2508
 
         if len(self.param.output_Cl) > 0:
             self.params['WantCls']           = True
@@ -249,10 +298,79 @@ class CambModule():
 
         self.params.update(self.param.extra_input)
 
-        # exeptions:
-        self.severe_exception = camb.CAMBError
-        self.computation_exception = camb.CAMBFortranError
+    def default_parameters(self):
+        ell_grid, z_bg, z_th = self.compute_global_grids()
+        default = {
+                   'output_Cl'            :  ( ['tt']                  ,  list         ),
+                   'ell_grid'             :  ( ell_grid                ,  list         ),
+                   'output_Pk'            :  ( []                      ,  list         ),
+                   'k_grid'               :  ( self.get_k_grid()       ,  list         ),
+                   'z_Pk_list'            :  ( [0.0]                   ,  list         ),
+                   'output_bg'            :  ( []                      ,  list         ),
+                   'z_bg_list'            :  ( z_bg                    ,  list         ),
+                   'output_th'            :  ( []                      ,  list         ),
+                   'z_th_list'            :  ( z_th                    ,  list         ),
+                   'extra_output'         :  ( {}                      ,  dict         ),
+                   'output_derived'       :  ( []                      ,  list         ),
+                   }
+        return default
 
+    def output_structures(self):
+        structure_dict = {
+                          'Scalar': {'list':  ['output_derived'],
+                                     'weight':[lambda x: np.ones(x.shape[0])*1e+4]
+                                     },
+                          '1D':     {'list':  ['output_Cl', 'output_bg', 'output_th', 'extra_output'],
+                                     'x_arr': ['ell_grid', 'z_bg_list', 'z_th_list', None],
+                                     'x_keys':['ell',      'z_bg',      'z_th',      None],
+                                     'weight':[lambda l: l,
+                                               lambda z: np.clip(1e+3*np.power(np.clip(z, a_min=1e-15, a_max=None), -0.3),
+                                                                 a_min=0.5, a_max=3e+3),
+                                               lambda z: np.clip(1e+3*np.power(np.clip(z, a_min=1e-15, a_max=None), -0.3),
+                                                                 a_min=0.5, a_max=3e+3),
+                                               lambda x: np.ones(x.shape[0])*1e+4]
+                                     },
+                          '2D':     {'list':  ['output_Pk'],
+                                     'x_arr': ['k_grid'],
+                                     'x_keys':['k_grid'],
+                                     'y_arr': ['z_Pk_list'],
+                                     'y_keys':['z'],
+                                     'weight':[lambda k, z: k**(1/3) * 1500]
+                                     }
+                          }
+        return structure_dict
+
+    def get_k_grid(self):
+        k_grid = np.sort(np.concatenate([np.logspace(np.log10(5e-6),  np.log10(5e-5),  15),
+                                         np.logspace(np.log10(1e-4),  np.log10(0.008), 8),
+                                         np.logspace(np.log10(0.76),  np.log10(5),     17),
+                                         np.logspace(np.log10(0.009), np.log10(0.75),  60)]))
+        k_grid *= 0.67556 # value of h in LCDM
+        return k_grid
+
+    def compute_global_grids(self):
+        try:
+            self.lmax = self.param.extra_input['lmax']
+        except:
+            self.lmax = 2508
+        pars = self.camb.set_params(ombh2=0.022,
+                                    omch2=0.12,
+                                    H0=67.5,
+                                    As=2e-9,
+                                    ns=0.965,
+                                    tau=0.06,
+                                    lmax = self.lmax,
+                                    WantCls = True,
+                                    Want_CMB = True,
+                                    DoLensing = True)
+        self.results = self.camb.get_results(pars)
+        cls = self.get_computed_cls(grid_only=True)
+        ell_grid = cls['ell']
+        z_bg = np.logspace(-3, 14, 99)
+        z_bg = np.insert(z_bg, 0, 0.0)
+        z_th = np.logspace(-2, 6.7, 99)
+        z_th = np.insert(z_th, 0, 0.0)
+        return ell_grid, z_bg, z_th
         
     def set_parameters(self, model):
         for i, par_name in enumerate(self.param_names):
@@ -268,11 +386,7 @@ class CambModule():
         outputs = {}
         
         if len(self.param.output_bg) > 0:
-            if len(self.param.z_bg_list) > 0:
-                z_bg = self.param.z_bg_list
-            else:
-                z_bg = np.logspace(-3, 14, 99)
-                z_bg = np.insert(z_bg, 0, 0.0)
+            z_bg = self.param.z_bg_list
             outputs['bg'] = {}
             for output in self.param.output_bg:
                 try:
@@ -287,11 +401,7 @@ class CambModule():
             outputs['bg']['z'] = z_bg
 
         if len(self.param.output_th) > 0:
-            if len(self.param.z_th_list) > 0:
-                z_th = self.param.z_th_list
-            else:
-                z_bg = np.logspace(-2, 6.7, 99)
-                z_bg = np.insert(z_bg, 0, 0.0)
+            z_th = self.param.z_th_list
             outputs['th'] = {}
             for output in self.param.output_th:
                 try:
@@ -329,20 +439,19 @@ class CambModule():
                     outputs['derived'][output] = der[output]
 
         if len(self.param.output_Cl) > 0:
-            cls = self.get_computed_cls(ell_array=self.global_ell)
+            cls = self.get_computed_cls(ell_array=self.param.ell_grid)
             if any(np.isnan(cls[key]).any() for key in cls):
                 raise self.computation_exception(
                     'CAMB computation completed with NaN values in CMB power spectra.')
-            ell = cls['ell'][2:]
+            ell = cls['ell']
             outputs['Cl'] = {}
             for output in self.param.output_Cl:
-                outputs['Cl'][output] = cls[output][2:]
+                outputs['Cl'][output] = cls[output]
             outputs['Cl']['ell'] = ell
 
         if len(self.param.output_Pk) > 0:
-            pks = {}
+            outputs['Pk'] = {}
             for pk in self.param.output_Pk:
-                pks[pk] = {}
                 if type(pk) == tuple:
                     if len(pk) == 3 and pk[2] == 'linear':
                         nonlinear = False
@@ -354,7 +463,8 @@ class CambModule():
                         raise ValueError("The third element of the tuple must be 'linear' to indicate linear matter power spectrum.")
                     else:
                         raise ValueError("Tuple for matter power spectrum must be of the form (pk_type_1, pk_type_2) or (pk_type_1, pk_type_2, 'linear').")
-                if type(pk) == str:
+                    pk = '-'.join(map(str,pk))
+                elif type(pk) == str:
                     if pk.endswith('_linear'):
                         nonlinear = False
                         var1 = pk.replace('_linear', '')
@@ -364,15 +474,12 @@ class CambModule():
                         var1 = pk
                         var2 = pk
                 Pk_interp = self.results.get_matter_power_interpolator(nonlinear=nonlinear, var1=var1, var2=var2, k_hunit=False)
+                outputs['Pk'][pk] = {}
                 for z in self.param.z_Pk_list:
-                    pks[pk][z] = []
+                    pk_array = []
                     for k in self.param.k_grid:
-                        pks[pk][z].append(Pk_interp.P(z, k))
-            outputs['Pk'] = {}
-            for output in self.param.output_Pk:
-                outputs['Pk'][output] = {}
-                for z in self.param.z_Pk_list:
-                    outputs['Pk'][output][z] = pks[output][z]
+                        pk_array.append(Pk_interp.P(z, k))
+                    outputs['Pk'][pk][z] = pk_array
             outputs['Pk']['k'] = self.param.k_grid    
 
 
@@ -387,7 +494,7 @@ class CambModule():
 
         return outputs
 
-    def get_computed_cls(self, ell_array=[]):
+    def get_computed_cls(self, ell_array=[], grid_only=False):
         cls = self.results.get_cmb_power_spectra(lmax=self.lmax)['total']
         l_max = cls.shape[0] - 1
     
@@ -402,7 +509,7 @@ class CambModule():
             l_logstep = 1.12
     
             increment = max(int(2*(np.power(l_logstep,angular_rescaling_) - 1)), 1)
-            l = [0,1,2]
+            l = [2]
     
             lin_increment = int(l_linstep*angular_rescaling_)
             while l[-1] + increment < l_max:
@@ -416,10 +523,12 @@ class CambModule():
             ell = np.array(ell_array)
     
         new_cls = {'ell': ell}
+        if grid_only:
+            return new_cls
         keys = ['tt','ee','bb','te']
         for i, key in enumerate(keys):
             new_cls[key] = cls[ell, i]
-        if 'pp' in self.param.output_Cl or'tp' in self.param.output_Cl or 'ep' in self.param.output_Cl:
+        if 'pp' in self.param.output_Cl or 'tp' in self.param.output_Cl or 'ep' in self.param.output_Cl:
             cls_lens = self.results.get_lens_potential_cls(lmax=self.lmax)
             new_cls['pp'] = cls_lens[ell, 0]
             new_cls['tp'] = cls_lens[ell, 1]

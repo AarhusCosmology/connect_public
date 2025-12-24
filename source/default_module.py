@@ -4,6 +4,7 @@ import types
 
 import numpy as np
 
+from source import cosmic_solvers
 
 class Parameters():
     def __init__(self, param_file):
@@ -31,17 +32,6 @@ class Parameters():
                    'parameters'           :  ( {}                      ,  dict         ),
                    'cosmic_solver'        :  ( 'class'                 ,  str          ),
                    'extra_input'          :  ( {}                      ,  dict         ),
-                   'output_Cl'            :  ( ['tt']                  ,  list         ),
-                   'ell_grid'             :  ( []                      ,  list         ),
-                   'output_Pk'            :  ( []                      ,  list         ),
-                   'k_grid'               :  ( self.get_k_grid(param)  ,  list         ),
-                   'z_Pk_list'            :  ( [0.0]                   ,  list         ),
-                   'output_bg'            :  ( []                      ,  list         ),
-                   'z_bg_list'            :  ( []                      ,  list         ),
-                   'output_th'            :  ( []                      ,  list         ),
-                   'z_th_list'            :  ( []                      ,  list         ),
-                   'extra_output'         :  ( {}                      ,  dict         ),
-                   'output_derived'       :  ( []                      ,  list         ),
                    'N'                    :  ( 10000                   ,  int          ),
                    'sampling'             :  ( 'lhc'                   ,  str          ),
                    ### Additional parameters for iterative sampling
@@ -72,22 +62,19 @@ class Parameters():
                    ### Miscellaneous parameters
                    'max_time_for_theory'  :  ( 200                     ,  int          ),
                    }
-        
+
+        if hasattr(param, 'cosmic_solver'):
+            solver = param.cosmic_solver
+        else:
+            solver = default['cosmic_solver'][0]
+
+        CosmoModule = getattr(cosmic_solvers, cosmic_solvers.name_dict[solver])
+        cm = CosmoModule(param, get_defaults=True)
+        default.update(cm.default_parameters())
+
         for key, val in default.items():
             setattr(self, key, getattr(param, key, val[0]))
         self.error_handling(param, default)
-
-
-
-    def get_k_grid(self, param):
-        if hasattr(param, 'output_Pk') and len(param.output_Pk) > 0:
-            k_grid = np.sort(np.concatenate([np.logspace(np.log10(5e-6),  np.log10(5e-5),  15),
-                                             np.logspace(np.log10(1e-4),  np.log10(0.008), 8),
-                                             np.logspace(np.log10(0.76),  np.log10(5),     17),
-                                             np.logspace(np.log10(0.009), np.log10(0.75),  60)]))
-            k_grid *= 0.67556 # value of h in LCDM
-            return k_grid
-        return None
 
     def try_cast_to_native_type(self, value, target_type):
         try:

@@ -18,19 +18,15 @@ sys.path.insert(1, CONNECT_PATH)
 from source.default_module import Parameters
 
 param = Parameters(param_file)
+# Remove CLASS if it was imported earlier
+if "classy" in sys.modules:
+    del sys.modules["classy"]
+for m in list(sys.modules):
+    if m.startswith("classy."):
+        del sys.modules[m]
 
 path = {}
 
-"""
-if param.cosmic_solver == 'class':
-    config_file = 'mcmc_plugin/config_files/class.conf'
-    cosmo_root = os.path.join(CONNECT_PATH, 'mcmc_plugin/class_wrapper')
-elif param.cosmic_solver == 'camb':
-    config_file = 'mcmc_plugin/config_files/camb.conf'
-    cosmo_root = os.path.join(CONNECT_PATH, 'mcmc_plugin/camb_wrapper')
-# set the correct path to wrapper in environment variable in order for cobaya to find it
-os.environ['CONNECT_CLASSY_PATH'] = cosmo_root
-"""
 
 with open(os.path.join(CONNECT_PATH, 'mcmc_plugin/config_files/connect.conf'), 'r') as f:
     for line in f:
@@ -46,7 +42,6 @@ sys.stdout = open(directory + 'cobaya.log','a+')
 sys.stderr = sys.stdout
 
 
-
 lkls = {'Planck_highl_TTTEEE_lite': {'name': 'planck_2018_highl_plik.TTTEEE_lite',
                                      'clik': os.path.join(path_clik, 'hi_l/plik_lite')},
         'Planck_lowl_TT':           {'name': 'planck_2018_lowl.TT_clik',
@@ -58,10 +53,12 @@ lkls = {'Planck_highl_TTTEEE_lite': {'name': 'planck_2018_highl_plik.TTTEEE_lite
 
 info = {'likelihood': {},
         'params': {},
-        'sampler': {'mcmc': {'Rminus1_cl_stop':  0.1,
+        'sampler': {'mcmc': {'Rminus1_cl_stop':  param.mcmc_tol,
                              'Rminus1_stop':     param.mcmc_tol,
                              'max_tries':        1e+5,
-                             'covmat':          'auto',
+                             'max_samples':      max(2e+5, int(1.5*param.N_max_points)),
+                             'output_every':     1000,
+                             'covmat':           'auto',
                              'oversample_power': 0,
                              'proposal_scale':   2.1,
                              'temperature':      temperature}},
@@ -188,7 +185,8 @@ for par in param.output_derived:
 if rank == 0:
     print("Rank 0: starting run()")
 
-updated_info, sampler = run(info, debug=True)
+
+updated_info, sampler = run(info, debug=False)
 
 print(f"Rank {rank}: sampling done")
 
@@ -202,8 +200,6 @@ except Exception as e:
 print(f"Rank {rank}: entering gather()")
 list_of_chains = comm.gather(samples.to_numpy(), root=0)
 print(f"Rank {rank}: finished gather()")
-
-#list_of_chains = comm.gather(sampler.products()["sample"].to_numpy(), root=0)
 
 if rank == 0:
     print("Rank 0: saving all chains")

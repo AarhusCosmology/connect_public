@@ -3,6 +3,8 @@ import subprocess as sp
 
 import numpy as np
 
+from source import cosmic_solvers
+
 CONNECT_PATH  = os.path.split(os.path.realpath(os.path.dirname(__file__)))[0]
 
 
@@ -11,6 +13,8 @@ def create_output_folders(param,            # Parameter object
                           reset=True,       # Resets output folders
                           resume=False      # Resume from iteration
                       ):
+    cosmic_solver = getattr(cosmic_solvers, cosmic_solvers.name_dict[param.cosmic_solver])(param)
+    output_structure = cosmic_solver.output_structures()
     if not resume:
         path = os.path.join(CONNECT_PATH, f'data/{param.jobname}')
         if not os.path.isdir(path):
@@ -22,21 +26,22 @@ def create_output_folders(param,            # Parameter object
                         os.system(f"rm -rf {os.path.join(path, name)}")
                 os.mkdir(os.path.join(path,f'N-{param.N}'))
                 os.mkdir(os.path.join(path, f'N-{param.N}/model_params_data'))
-                for output in param.output_Cl:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/Cl_{output}_data'))
-                for output in param.output_Pk:
-                    if type(output) == tuple:
-                        output = '-'.join(map(str,output))
-                    os.mkdir(os.path.join(path, f'N-{param.N}/Pk_{output}_data'))
-                for output in param.output_bg:
-                    output = output.replace('/','\\')
-                    os.mkdir(os.path.join(path, f'N-{param.N}/bg_{output}_data'))
-                for output in param.output_th:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/th_{output}_data'))
-                if len(param.output_derived) > 0:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/derived_data'))
-                for output in param.extra_output:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/extra_{output}_data'))
+                for output in output_structure['1D']['list']:
+                    output_name = output.replace('output_','').replace('_output','')
+                    for array in getattr(param, output):
+                        arr = array.replace('/','\\')
+                        os.mkdir(os.path.join(path, f'N-{param.N}/{output_name}_{arr}_data'))
+                for output in output_structure['2D']['list']:
+                    output_name = output.replace('output_','').replace('_output','')
+                    for array in getattr(param, output):
+                        if type(array) == tuple:
+                            array = '-'.join(map(str,array))
+                        arr = array.replace('/','\\')
+                        os.mkdir(os.path.join(path, f'N-{param.N}/{output_name}_{arr}_data'))
+                for output in output_structure['Scalar']['list']:
+                    output_name = output.replace('output_','').replace('_output','')
+                    os.mkdir(os.path.join(path, f'N-{param.N}/{output_name}_data'))
+
 
             elif reset:
                 for name in os.listdir(path):
@@ -48,27 +53,21 @@ def create_output_folders(param,            # Parameter object
                 os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}')}")
                 os.mkdir(os.path.join(path, f'number_{iter_num}'))
             os.mkdir(os.path.join(path, f'number_{iter_num}/model_params_data'))
-            for output in param.output_Cl:
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/Cl_{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/Cl_{output}_data'))
-            for output in param.output_Pk:
-                if type(output) == tuple:
-                    output = '-'.join(map(str,output))
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/Pk_{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/Pk_{output}_data'))
-            for output in param.output_bg:
-                output = output.replace('/','\\')
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/bg_{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/bg_{output}_data'))
-            for output in param.output_th:
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/th_{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/th_{output}_data'))
-            if len(param.output_derived) > 0:
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/derived_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/derived_data'))
-            for output in param.extra_output:
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/extra_{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/extra_{output}_data'))
+            for output in output_structure['1D']['list']:
+                output_name = output.replace('output_','').replace('_output','')
+                for array in getattr(param, output):
+                    arr = array.replace('/','\\')
+                    os.mkdir(os.path.join(path, f'number_{iter_num}/{output_name}_{arr}_data'))
+            for output in output_structure['2D']['list']:
+                output_name = output.replace('output_','').replace('_output','')
+                for array in getattr(param, output):
+                    if type(array) == tuple:
+                        array = '-'.join(map(str,array))
+                    arr = array.replace('/','\\')
+                    os.mkdir(os.path.join(path, f'number_{iter_num}/{output_name}_{arr}_data'))
+            for output in output_structure['Scalar']['list']:
+                output_name = output.replace('output_','').replace('_output','')
+                os.mkdir(os.path.join(path, f'number_{iter_num}/{output_name}_data'))
 
 
 def join_data_files(param     # Parameter object
@@ -81,10 +80,10 @@ def join_data_files(param     # Parameter object
 
 def combine_sets_of_data_files(new_data,   # Data file for the new data (destination for combined data)
                                old_data,   # Data file for the old data
-                               Pk=False,
+                               is2D=False,
                                no_header=False
                            ):
-    if not Pk:
+    if not is2D:
         with open(new_data,'a') as f:
             with open(old_data,'r') as g:
                 if no_header:
@@ -100,19 +99,19 @@ def combine_sets_of_data_files(new_data,   # Data file for the new data (destina
             old_lines = list(f)
 
         lines_separated = {}
-        z_keys = []
+        y_keys = []
         for line in new_lines[1:]+old_lines[1:]:
             if line[0] == "#":
-                z_keys.append(line)
-                if z_keys[-1] not in lines_separated:
-                    lines_separated[z_keys[-1]] = []
+                y_keys.append(line)
+                if y_keys[-1] not in lines_separated:
+                    lines_separated[y_keys[-1]] = []
             else:
-                lines_separated[z_keys[-1]].append(line)
+                lines_separated[y_keys[-1]].append(line)
         
-        N = int(len(z_keys)/2)
+        N = int(len(y_keys)/2)
         with open(new_data,'w') as f:
             f.write(new_lines[0])
-            for key in z_keys[:N]:
+            for key in y_keys[:N]:
                 f.write(key)
                 for line in lines_separated[key]:
                     f.write(line)
@@ -122,6 +121,8 @@ def combine_iterations_data(param,             # Parameter object
                             iter_num           # Current iteration number
                         ):
 
+    cosmic_solver = getattr(cosmic_solvers, cosmic_solvers.name_dict[param.cosmic_solver])(param)
+    output_structure = cosmic_solver.output_structures()
     path_i = os.path.join(CONNECT_PATH, f'data/{param.jobname}/number_{iter_num}')
     if iter_num-1 == 0:
         path_j = os.path.join(CONNECT_PATH, f'data/{param.jobname}/N-{param.N}')
@@ -129,27 +130,31 @@ def combine_iterations_data(param,             # Parameter object
         path_j = os.path.join(CONNECT_PATH, f'data/{param.jobname}/number_{iter_num-1}')
     combine_sets_of_data_files(os.path.join(path_i, 'model_params.txt'),
                                os.path.join(path_j, 'model_params.txt'))
-    if len(param.output_derived) > 0:
-        combine_sets_of_data_files(os.path.join(path_i, 'derived.txt'),
-                                   os.path.join(path_j, 'derived.txt'))
-    for output in param.output_Cl:
-        combine_sets_of_data_files(os.path.join(path_i, f'Cl_{output}.txt'),
-                                   os.path.join(path_j, f'Cl_{output}.txt'))
-    for output in param.output_Pk:
-        if type(output) == tuple:
-            output = '-'.join(map(str,output))
-        combine_sets_of_data_files(os.path.join(path_i, f'Pk_{output}.txt'),
-                                   os.path.join(path_j, f'Pk_{output}.txt'), Pk=True)
-    for output in param.output_bg:
-        output = output.replace('/','\\')
-        combine_sets_of_data_files(os.path.join(path_i, f'bg_{output}.txt'),
-                                   os.path.join(path_j, f'bg_{output}.txt'))
-    for output in param.output_th:
-        combine_sets_of_data_files(os.path.join(path_i, f'th_{output}.txt'),
-                                   os.path.join(path_j, f'th_{output}.txt'))
-    for output in param.extra_output:
-        combine_sets_of_data_files(os.path.join(path_i, f'extra_{output}.txt'),
-                                   os.path.join(path_j, f'extra_{output}.txt'), no_header=True)
+
+    for idx, output in enumerate(output_structure['Scalar']['list']):
+        output_name = output.replace('output_','').replace('_output','')
+        combine_sets_of_data_files(os.path.join(path_i, f'{output_name}.txt'),
+                                   os.path.join(path_j, f'{output_name}.txt'))
+    for idx, output in enumerate(output_structure['1D']['list']):
+        output_name = output.replace('output_','').replace('_output','')
+        x_array = output_structure['1D']['x_arr'][idx]
+        if x_array is not None:
+            no_header = False
+        else:
+            no_header = True
+        for array in getattr(param, output):
+            arr = array.replace('/','\\')
+            combine_sets_of_data_files(os.path.join(path_i, f'{output_name}_{arr}.txt'),
+                                       os.path.join(path_j, f'{output_name}_{arr}.txt'), no_header=no_header)
+    for idx, output in enumerate(output_structure['2D']['list']):
+        output_name = output.replace('output_','').replace('_output','')
+        for array in getattr(param, output):
+            if type(array) == tuple:
+                array = '-'.join(map(str,array))
+            arr = array.replace('/','\\')
+            combine_sets_of_data_files(os.path.join(path_i, f'{output_name}_{arr}.txt'),
+                                       os.path.join(path_j, f'{output_name}_{arr}.txt'), is2D=True)
+
 
 
 

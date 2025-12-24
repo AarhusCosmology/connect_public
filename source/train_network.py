@@ -7,13 +7,16 @@ import numpy as np
 
 from .custom_functions import LossFunctions
 from .architecture.sequential_models import Dense_model
-from .callbacks import KeepBestEpoch
+from .callbacks import KeepBestEpoch, ReduceLROnPlateau
+from . import cosmic_solvers
 
 class Training():
 
     def __init__(self, param, CONNECT_PATH):
         self.param = param
         self.CONNECT_PATH = CONNECT_PATH
+
+        cosmic_solver = getattr(cosmic_solvers, cosmic_solvers.name_dict[self.param.cosmic_solver])(self.param)
         
         path = os.path.join(CONNECT_PATH, f'data/{param.jobname}')
         if param.sampling == 'iterative':
@@ -33,7 +36,7 @@ class Training():
 
         model_params     = []
         outputs          = []
-        ell_weights      = []
+        weights          = []
         output_interval  = {}
         output_size_iter = 0
         normalise_method = self.param.normalisation_method
@@ -53,132 +56,82 @@ class Training():
 
         
         ### Load output data ###
-        if len(self.param.output_Cl) > 0:
-            output_interval['Cl']  = {}
-        for output in self.param.output_Cl:
+        x_array_outputs = {}
+        output_structure = cosmic_solver.output_structures()
+        for idx, output in enumerate(output_structure['1D']['list']):
+            output_name = output.replace('output_','').replace('_output','')
+            output_interval[output_name] = {}
+            for array in getattr(self.param, output):
+                arr = array.replace('/','\\')
+                out = []
+                with open(os.path.join(self.load_path, f'{output_name}_{arr}.txt'), 'r') as f:
+                    for i, line in enumerate(f):
+                        if i == 0 and output_structure['1D']['x_arr'][idx] is not None:
+                            if '.' in line:
+                                x_array = np.float32(line.replace('\n','').split('\t'))
+                            else:
+                                x_array = np.int32(line.replace('\n','').split('\t'))
+                            weights.append(output_structure['1D']['weight'][idx](x_array))
+                        elif i == 0:
+                            x_array = np.ones(line.count('\t')+1)
+                            weights.append(output_structure['1D']['weight'][idx](x_array))
+                            out.append(np.float32(line.replace('\n','').split('\t')))
+                        else:
+                            out.append(np.float32(line.replace('\n','').split('\t')))
+                outputs.append(out)
+                output_interval[output_name][array] = [output_size_iter, output_size_iter + len(out[0])]
+                output_size_iter += len(out[0])
+            x_array_outputs[output_structure['1D']['x_arr'][idx]] = x_array
+
+
+        y_array_outputs = {}
+        output_structure = cosmic_solver.output_structures()
+        for idx, output in enumerate(output_structure['2D']['list']):
+            output_name = output.replace('output_','').replace('_output','')
+            output_interval[output_name] = {}
+            for array in getattr(self.param, output):
+                if type(array) == tuple:
+                    array = '-'.join(map(str, array))
+                arr = array.replace('/','\\')
+                output_interval[output_name][array] = {}
+                out = []
+                y_idx = 0
+                y_array = []
+                with open(os.path.join(self.load_path, f'{output_name}_{arr}.txt'), 'r') as f:
+                    for i, line in enumerate(f):
+                        if i == 0 and output_structure['2D']['x_arr'][idx] is not None:
+                            x_array = np.float32(line.replace('\n','').split('\t'))
+                            x_array_outputs[output_structure['2D']['x_arr'][idx]] = x_array
+                        elif line[0] == '#':
+                            y_array.append(np.float32(line.split('=')[-1].strip()))
+                            weights.append(output_structure['2D']['weight'][idx](x_array, y_array[-1]))
+                            out.append([])
+                        else:
+                            out[-1].append(np.float32(line.replace('\n','').split('\t')))
+                for out_i, y in zip(out, y_array):
+                    outputs.append(out_i)
+                    output_interval[output_name][array][str(y)] = [output_size_iter, output_size_iter + len(out_i[0])]
+                    output_size_iter += len(out_i[0])
+            x_array_outputs[output_structure['2D']['x_arr'][idx]] = x_array
+            y_array_outputs[output_structure['2D']['y_arr'][idx]] = np.array(y_array)
+
+        output_structure = cosmic_solver.output_structures()
+        for idx, output in enumerate(output_structure['Scalar']['list']):
+            output_name = output.replace('output_','').replace('_output','')
+            output_interval[output_name] = {}
             out = []
-            with open(os.path.join(self.load_path, f'Cl_{output}.txt'), 'r') as f:
+            with open(os.path.join(self.load_path, f'{output_name}.txt'), 'r') as f:
                 for i, line in enumerate(f):
                     if i == 0:
-                        ell = np.int32(line.replace('\n','').split('\t'))
-                        if not hasattr(self, 'output_ell'):
-                            self.output_ell = ell
+                        names = line.replace('# ','').replace('\n','').split('\t')
+                        x_array = np.ones(line.count('\t')+1)
+                        weights.append(output_structure['Scalar']['weight'][idx](x_array))
                     else:
-                        if i == 1:
-                            ell_weights.append(ell)
                         out.append(np.float32(line.replace('\n','').split('\t')))
             outputs.append(out)
-            output_interval['Cl'][output] = [output_size_iter, output_size_iter + len(out[0])]
-            output_size_iter += len(out[0])
-
-
-        if len(self.param.output_Pk) > 0:
-            output_interval['Pk']  = {}
-        for output in self.param.output_Pk:
-            if type(output) == tuple:
-                output = '-'.join(map(str, output))
-            output_interval['Pk'][output] = {}
-            out = {}
-            for z in self.param.z_Pk_list:
-                out[z] = []
-            z_idx = 0
-            with open(os.path.join(self.load_path, f'Pk_{output}.txt'), 'r') as f:
-                for i, line in enumerate(f):
-                    if i == 0:
-                        k_grid = np.float32(line.replace('\n','').split('\t'))
-                        if not hasattr(self, 'output_k_grid'):
-                            self.output_k_grid = k_grid
-                    else:
-                        if line[0] == '#':
-                            z = self.param.z_Pk_list[z_idx]
-                            z_idx += 1
-                            j = 0
-                        if j > 0:
-                            if j == 1:
-                                ell_weights.append(k_grid**(1/3) * 1500)
-                            out[z].append(np.float32(line.replace('\n','').split('\t')))
-                        j += 1
-            for z in self.param.z_Pk_list:
-                outputs.append(out[z])
-                output_interval['Pk'][output][str(z)] = [output_size_iter, output_size_iter + len(out[z][0])]
-                output_size_iter += len(out[z][0])
-
-
-        if len(self.param.output_bg) > 0:
-            output_interval['bg']  = {}
-        for output in self.param.output_bg:
-            file_output = output.replace('/','\\')
-            out = []
-            with open(os.path.join(self.load_path, f'bg_{file_output}.txt'), 'r') as f:
-                for i, line in enumerate(f):
-                    if i == 0:
-                        if not hasattr(self, 'output_z_bg'):
-                            self.output_z_bg = np.float32(line.replace('\n','').split('\t'))
-                    else:
-                        if i == 1:
-                            ell_weights.append(5*10**2*np.ones(line.count('\t')+1))
-                        out.append(np.float32(line.replace('\n','').split('\t')))
-            outputs.append(np.array(out))
-            output_interval['bg'][output] = [output_size_iter, output_size_iter + len(out[0])]
-            output_size_iter += len(out[0])
-
-
-        if len(self.param.output_th) > 0:
-            output_interval['th']  = {}
-        for output in self.param.output_th:
-            out = []
-            with open(os.path.join(self.load_path, f'th_{output}.txt'), 'r') as f:
-                for i, line in enumerate(f):
-                    if i == 0:
-                        if not hasattr(self, 'output_z_th'):
-                            self.output_z_th = np.float32(line.replace('\n','').split('\t'))
-                    else:
-                        if i == 1:
-                            ell_weights.append(5*10**2*np.ones(line.count('\t')+1))
-                        out.append(np.float32(line.replace('\n','').split('\t')))
-            outputs.append(np.array(out))
-            output_interval['th'][output] = [output_size_iter, output_size_iter + len(out[0])]
-            output_size_iter += len(out[0])
-
-
-        if len(self.param.output_derived) > 0:
-            output_interval['derived']  = {}
-            output_derived = []
-            with open(os.path.join(self.load_path, 'derived.txt'), 'r') as f:
-                lines = list(f)
-                derived_names = lines[0].replace('# ','').replace('\n','').split('\t')
-                for i, line in enumerate(lines[1:]):
-                    out = []
-                    line_vals = []
-                    for name in self.param.output_derived:
-                        idx = derived_names.index(name)
-                        line_vals.append(line.replace('\n','').split('\t')[idx])
-                    line_vals = np.float32(line_vals)
-                    if i == 0:
-                        ell_weights.append(10**4*np.ones(line.count('\t')+1))
-                    for j, output in enumerate(self.param.output_derived):
-                        out.append(np.array(line_vals[j]))
-                        if i == 0:
-                            output_interval['derived'][output] = output_size_iter
-                            output_size_iter += 1
-                    output_derived.append(out)
-            output_derived = np.array(output_derived)
-            outputs.append(output_derived)
-
-
-        if len(self.param.extra_output) > 0:
-            output_interval['extra']  = {}
-        for output in self.param.extra_output:
-            out = []
-            with open(os.path.join(self.load_path, f'extra_{output}.txt'), 'r') as f:
-                for i, line in enumerate(f):
-                    if i == 0:
-                        ell_weights.append(10**4*np.ones(line.count('\t')+1))
-                    out.append(np.float32(line.replace('\n','').split('\t')))
-            outputs.append(np.array(out))
-            output_interval['extra'][output] = [output_size_iter, output_size_iter + len(out[0])]
-            output_size_iter += len(out[0])
-
+            for name in names:
+                output_interval[output_name][name] = output_size_iter
+                output_size_iter += 1
 
 
         self.output_dim = output_size_iter
@@ -189,8 +142,8 @@ class Training():
         if normalise_method == 'standardisation':
             def normalise_with_moments(x, epsilon=1e-20):
                 delta = 1e-3
-                mean = np.mean(x)
-                var = np.var(x)
+                mean = sum(x)/len(x)
+                var = sum((x-mean)**2)/len(x)
                 variance = var + epsilon # epsilon to avoid dividing by zero
                 x_normed = (x - mean) / np.sqrt(variance)
                 var = np.var(x_normed)
@@ -212,11 +165,14 @@ class Training():
                 outputs.append(data)
                 out_mean.append(mean)
                 out_var.append(var)
+
+
             
             outputs = np.array(outputs).T
             std = tf.sqrt(tf.constant(out_var, dtype=tf.float32))
             mean = tf.constant(out_mean, dtype=tf.float32)
             self.unnormalise = lambda x: x*std + mean
+
 
             out_nodes =[]
             out_mean = []
@@ -318,26 +274,22 @@ class Training():
         ### Prepare output info dictionary for model ###
         self.output_info = {'input_names':    paramnames,
                             'interval':       output_interval,
-                            'cosmic_solver':  self.param.cosmic_solver}
-        if len(self.param.output_Cl) > 0:
-            self.output_info['ell']       = list(self.output_ell)
-            self.output_info['output_Cl'] = self.param.output_Cl
-        if len(self.param.output_Pk) > 0:
-            self.output_info['k_grid']    = list(self.output_k_grid)
-            # if pk output is a tuple, convert to string py joining elements with '-'
-            self.output_info['output_Pk'] = [('-'.join(map(str, output)) if type(output) == tuple else output) for output in self.param.output_Pk]
-        if len(self.param.output_bg) > 0:
-            self.output_info['z_bg']      = list(self.output_z_bg)
-            self.output_info['output_bg'] = self.param.output_bg
-        if len(self.param.output_th) > 0:
-            self.output_info['z_th']      = list(self.output_z_th)
-            self.output_info['output_th'] = self.param.output_th
-        if len(self.param.output_derived) > 0:
-            self.output_info['output_derived'] = self.param.output_derived
-        if len(self.param.extra_output) > 0:
-            self.output_info['extra_output'] = self.param.extra_output
-        if len(self.param.extra_input) > 0:
-            self.output_info['extra_input'] = self.param.extra_input
+                            'cosmic_solver':  self.param.cosmic_solver,
+                            'extra_input':    self.param.extra_input,
+                            }
+
+        for key in output_structure['Scalar']['list']:
+            self.output_info[key] = getattr(self.param, key)
+        for key in output_structure['1D']['list']:
+            self.output_info[key] = getattr(self.param, key)
+            for x_arr, x_key in zip(output_structure['1D']['x_arr'], output_structure['1D']['x_keys']):
+                if x_arr is not None:
+                    self.output_info[x_key] = list(getattr(self.param, x_arr))
+        for key in output_structure['2D']['list']:
+            self.output_info[key] = [('-'.join(map(str, output)) if type(output) == tuple else output) for output in getattr(self.param, key)]
+            for x_arr, x_key in zip(output_structure['2D']['x_arr'], output_structure['2D']['x_keys']):
+                if x_arr is not None:
+                    self.output_info[x_key] = list(getattr(self.param, x_arr))
 
 
         ### Convert data to tensors ###
@@ -383,8 +335,8 @@ class Training():
 
 
         ### Set loss function ###
-        ell_weights = np.concatenate(ell_weights)
-        Loss = LossFunctions(ell_weights) 
+        weights = np.concatenate(weights)
+        Loss = LossFunctions(weights)
         if callable(getattr(Loss, self.param.loss_function, None)):
             _locals = {}
             exec('loss_fun = Loss.'+self.param.loss_function, locals(), _locals)
@@ -429,6 +381,9 @@ class Training():
         else:
             ell_computed = [2,3,4,5]
 
+        # Enable global NaN/Inf checks
+        #tf.debugging.enable_check_numerics()
+
         with self.training_strategy:
 
             self.model = Dense_model(self.param.N_nodes, 
@@ -457,11 +412,18 @@ class Training():
                 for ov, nv in zip(old_vars, new_vars):
                     nv.assign(ov)
 
-            
+        self.model.build((None, len(self.param.parameters.keys())))
+        print(self.model.summary())
         self.history = self.model.fit(self.train_dataset,
                                       epochs=self.param.epochs,
                                       validation_data=self.val_dataset,
-                                      callbacks=[KeepBestEpoch()])
+                                      callbacks=[KeepBestEpoch(),
+                                                 #ReduceLROnPlateau(patience=30,
+                                                 #                  factor=0.7,
+                                                 #                  min_lr=1e-7
+                                                 #                  )
+                                                 ]
+                                      )
 
         if output_file != None:
             sys.stdout.close()

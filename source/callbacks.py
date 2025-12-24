@@ -76,3 +76,8 @@ class EarlyStoppingAtMinLoss(tf.keras.callbacks.Callback):
     def on_train_end(self, logs=None):
         if self.stopped_epoch > 0:
             print("Epoch %05d: early stopping" % (self.stopped_epoch + 1))
+
+
+class ReduceLROnPlateau(tf.keras.callbacks.ReduceLROnPlateau):
+    def __init__(self, monitor='loss', factor=0.7, patience=30, min_lr=1e-7, verbose=1):
+        super().__init__(monitor=monitor, factor=factor, patience=patience, min_lr=min_lr, verbose=verbose)

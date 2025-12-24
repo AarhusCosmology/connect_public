@@ -196,7 +196,7 @@ class Sampling():
                 f.write(f"\njobname = '{self.param.jobname}'")
         self.param.param_file = os.path.join(self.CONNECT_PATH, self.data_path, 'log_connect.param')
 
-    def call_calc_models(self, sampling='lhc', recompute=True):
+    def call_calc_models(self, sampling='lhc', recompute=False):
         os.environ["OMP_NUM_THREADS"] = str(self.N_cpus_per_task)
         os.environ["PMIX_MCA_gds"] = "hash"
         sp.check_call(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling} {recompute}".split())

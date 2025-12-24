@@ -32,7 +32,7 @@ class montepython(MCMC_base_class):
 
         output_dir = f'{self.CONNECT_PATH}/data/{self.param.jobname}/number_{iteration}'
 
-        sp.run(f"{os.path.join(self.CONNECT_PATH,'source/mcmc_samplers/run_scripts/run_montepython_iteration.sh')} {output_dir} {MP_param_file} {os.path.join(self.CONNECT_PATH,'mcmc_plugin/config_files/connect.conf')} {self.param.temperature} {self.param.mcmc_tol} {self.mcmc_node}", shell=True, cwd=self.montepython_path)
+        sp.run(f"{os.path.join(self.CONNECT_PATH,'source/mcmc_samplers/run_scripts/run_montepython_iteration.sh')} {output_dir} {MP_param_file} {os.path.join(self.CONNECT_PATH,'mcmc_plugin/config_files/connect.conf')} {self.param.temperature} {self.param.mcmc_tol} {self.mcmc_node} {self.param.N_max_points}", shell=True, cwd=self.montepython_path)
 
     
     def get_number_of_accepted_steps(self, iteration):

@@ -4,7 +4,7 @@ output_file="${1}/montepython.log"
 MPARGS=" -p ${2}"
 MPARGS+=" -o $output_dir"
 MPARGS+=" -c covmat/base2018TTTEEE_lite.covmat"
-MPARGS+=" -N 1000000"
+MPARGS+=" -N 200000"
 MPARGS+=" --conf ${3}"
 MPARGS+=" -j fast -f 2.1 --silent"
 MPARGS+=" --update 1000"
@@ -13,6 +13,7 @@ mkdir -p $output_dir
 
 mcmc_tol=$5
 node=$6
+N_max_points=$7
 
 if ! [ $node == "None" ]
 then
@@ -25,7 +26,7 @@ mpirun $MPI_ARGS python montepython/MontePython.py run $MPARGS &> $output_file &
 
 job_running=true
 
-while [ $job_running = true ] && [ $(ps -p $pid | wc -l) -gt 1 ]
+while [ $job_running = true ] && [ $(ps -p $pid 2>/dev/null | wc -l) -gt 1 ]
 do
     sleep 5s
     line0=$( grep -Fn 'Scanning file' $output_file | tail -n 1 | tr ":" "\n" | head -n 1)
@@ -39,7 +40,8 @@ do
     then
         line2=0
     fi
-    
+
+    kill_job=false
     if [ $line2 -gt $line1 ] && ! [[ $(sed -n "${line0},$$p" $output_file) == *"Removed everything: chain not converged"* ]]
     then
         kill_job=true
@@ -60,11 +62,25 @@ do
                 kill_job=false
             fi
         done
-        if $kill_job
-        then
-            kill $pid
-            job_running=false
-        fi
+    fi
+
+    accepted=$(cat ${output_dir}/*.txt | wc -l)
+    non_markovian=0
+    for file in $(ls ${output_dir}/*.txt)
+    do
+        x=$(grep -rnw "$file" -e "#" | tail -n 1 | tr ":" "\n" | head -n 1)
+        non_markovian=$((non_markovian + x))
+    done
+
+    if [ $(echo "$(echo "1.5 * $N_max_points" | bc) / 1" | bc) -gt $((accepted - non_markovian)) ]
+    then
+        kill_job=false
+    fi
+    
+    if $kill_job
+    then
+        kill $pid
+        job_running=false
     fi
 done
 
