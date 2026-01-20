@@ -316,6 +316,16 @@ install_cobaya() {
     ok "Cobaya ready."
 }
 
+install_planck_lite_python() {
+    info "Installing Planck lite python..."
+    $DRYRUN && return
+    mkdir -p resources
+    cd resources
+    git clone https://github.com/heatherprince/planck-lite-py.git planck_lite_py
+    cd "$BASEPWD"
+    ok "Planck lite python ready."
+}
+
 install_camb() {
     local env_name="$1"
     info "Installing CAMB..."
@@ -370,6 +380,9 @@ ask setup_clik "Use Planck likelihoods with CONNECT (requires CLIK)?" "yes" "yes
 if [ "$setup_clik" == "yes" ]; then
     ask clik_path "Enter path to existing clik data (path/to/code/plc_3.0/plc-3.01/) or leave blank to auto-install" "" ""
 fi
+
+# === Planck lite python ===
+ask setup_planck_lite "Install Planck-lite Python package?" "yes" "yes"
 
 # === CLASS ===
 ask class "Use CLASS with CONNECT?" "yes" "yes"
@@ -428,6 +441,7 @@ printf "  %-20s : %s\n" "Cobaya" "$(color_flag $cobaya)"
 printf "  %-20s : %s %s\n" "CLASS" "$(color_flag $class)" "$class_display"
 printf "  %-20s : %s\n" "CAMB" "$(color_flag $camb)"
 printf "  %-20s : %s %s\n" "CLIK" "$(color_flag $setup_clik)" "$clik_display"
+printf "  %-20s : %s\n" "Planck lite Python" "$(color_flag $setup_planck_lite)"
 
 echo -e "\n${BLUE}--------------------------------------------------------------${NC}"
 
@@ -462,6 +476,7 @@ fi
 
 [ "$create_env" == "yes" ] && install_conda_env "$env_name"
 [ "$setup_mp" == "yes" ] && install_montepython "$env_name" "$MN_PC" "$clik_path" "$montepython_path"
+[ "$setup_planck_lite" == "yes" ] && install_planck_lite_python
 [ "$cobaya" == "yes" ] && install_cobaya "$env_name" "$clik_path"
 [ "$class" == "yes" ] && install_class "$env_name" "$class_path"
 [ "$camb" == "yes" ] && install_camb "$env_name"

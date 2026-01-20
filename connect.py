@@ -147,3 +147,12 @@ if keyword == 'procrastinate':
     with open('source/assets/surprise.txt','r') as f:
         obfuscated_code = f.readlines()[0]
     exec(base64.b85decode(obfuscated_code.encode('utf-8')))
+
+
+#####################################
+# _______ convert to tflite _______ #
+#####################################
+
+if keyword == 'convert':
+    from source.create_tflite_model import Convert_to_TFLite
+    Convert_to_TFLite(sys.argv[2])
