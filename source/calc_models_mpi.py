@@ -122,8 +122,9 @@ else:
 
     for out in output_structure['Scalar']['list']:
         out_name = out.replace('output_','').replace('_output','')
-        out_dirs_scalar.append({'path': os.path.join(directory, f'{out_name}_data/{out_name}_data_{rank}.txt'),
-                                'output_name': out})
+        if len(getattr(param, out)) > 0:
+            out_dirs_scalar.append({'path': os.path.join(directory, f'{out_name}_data/{out_name}_data_{rank}.txt'),
+                                    'output_name': out})
     for out in output_structure['1D']['list']:
         out_name = out.replace('output_','').replace('_output','')
         for arr in getattr(param, out):
@@ -173,6 +174,7 @@ else:
     for i, out_dir in enumerate(out_dirs_2D):
         with open(out_dir['path'], 'w') as f:
             f.write('')
+
 
     # Initialise timeout signal
     def timeout_handler(num, stack):

@@ -120,12 +120,10 @@ class Sampling():
             print(f'Running MCMC sampling no. {i}...', flush=True)
             mcmc.temperature = temperature
             mcmc.run_mcmc_sampling(model, i)
-            print(f'MCMC sampling stopped since R-1 less than {self.param.mcmc_tol} has been reached.', flush=True)
-
             N_acc = mcmc.get_number_of_accepted_steps(i)
             print(f'Number of accepted steps: {N_acc}', flush=True)
             if i == 1 and not self.param.keep_first_iteration:
-                N_keep = 5000
+                N_keep = self.param.N_first_iteration
             else:
                 N_keep = self.param.N_max_points
             N_keep = mcmc.filter_chains(N_keep,i)

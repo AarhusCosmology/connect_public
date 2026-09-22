@@ -3,6 +3,7 @@ import sys
 import pickle
 
 import tensorflow as tf
+import tf_keras
 import numpy as np
 
 from .custom_functions import LossFunctions
@@ -57,7 +58,9 @@ class Training():
         
         ### Load output data ###
         x_array_outputs = {}
+        y_array_outputs = {}
         output_structure = cosmic_solver.output_structures()
+
         for idx, output in enumerate(output_structure['1D']['list']):
             output_name = output.replace('output_','').replace('_output','')
             output_interval[output_name] = {}
@@ -81,11 +84,8 @@ class Training():
                 outputs.append(out)
                 output_interval[output_name][array] = [output_size_iter, output_size_iter + len(out[0])]
                 output_size_iter += len(out[0])
-            x_array_outputs[output_structure['1D']['x_arr'][idx]] = x_array
+                x_array_outputs[output_structure['1D']['x_arr'][idx]] = x_array
 
-
-        y_array_outputs = {}
-        output_structure = cosmic_solver.output_structures()
         for idx, output in enumerate(output_structure['2D']['list']):
             output_name = output.replace('output_','').replace('_output','')
             output_interval[output_name] = {}
@@ -112,26 +112,26 @@ class Training():
                     outputs.append(out_i)
                     output_interval[output_name][array][str(y)] = [output_size_iter, output_size_iter + len(out_i[0])]
                     output_size_iter += len(out_i[0])
-            x_array_outputs[output_structure['2D']['x_arr'][idx]] = x_array
-            y_array_outputs[output_structure['2D']['y_arr'][idx]] = np.array(y_array)
+                x_array_outputs[output_structure['2D']['x_arr'][idx]] = x_array
+                y_array_outputs[output_structure['2D']['y_arr'][idx]] = np.array(y_array)
 
-        output_structure = cosmic_solver.output_structures()
         for idx, output in enumerate(output_structure['Scalar']['list']):
             output_name = output.replace('output_','').replace('_output','')
             output_interval[output_name] = {}
             out = []
-            with open(os.path.join(self.load_path, f'{output_name}.txt'), 'r') as f:
-                for i, line in enumerate(f):
-                    if i == 0:
-                        names = line.replace('# ','').replace('\n','').split('\t')
-                        x_array = np.ones(line.count('\t')+1)
-                        weights.append(output_structure['Scalar']['weight'][idx](x_array))
-                    else:
-                        out.append(np.float32(line.replace('\n','').split('\t')))
-            outputs.append(out)
-            for name in names:
-                output_interval[output_name][name] = output_size_iter
-                output_size_iter += 1
+            if len(getattr(self.param, output)) > 0:
+                with open(os.path.join(self.load_path, f'{output_name}.txt'), 'r') as f:
+                    for i, line in enumerate(f):
+                        if i == 0:
+                            names = line.replace('# ','').replace('\n','').split('\t')
+                            x_array = np.ones(line.count('\t')+1)
+                            weights.append(output_structure['Scalar']['weight'][idx](x_array))
+                        else:
+                            out.append(np.float32(line.replace('\n','').split('\t')))
+                outputs.append(out)
+                for name in names:
+                    output_interval[output_name][name] = output_size_iter
+                    output_size_iter += 1
 
 
         self.output_dim = output_size_iter
@@ -346,7 +346,7 @@ class Training():
 
 
         ### Normalise input data ###
-        self.input_normaliser = tf.keras.layers.experimental.preprocessing.Normalization(input_dim=input_dim)
+        self.input_normaliser = tf_keras.layers.Normalization(axis=-1)
         self.input_normaliser.adapt(np.concatenate([x for x, y in self.train_dataset], axis=0))
 
 
@@ -357,10 +357,12 @@ class Training():
         if self.param.warm_start_model is not None:
             previous_model = self.param.warm_start_model
 
+        # if macos
+
         if sys.platform == 'darwin':
-            optimiser = tf.keras.optimizers.legacy.Adam
+            optimiser = tf_keras.optimizers.legacy.Adam
         else:
-            optimiser = tf.keras.optimizers.Adam
+            optimiser = tf_keras.optimizers.Adam
 
         adam = optimiser(learning_rate=0.0001,
                          beta_1=0.9,
@@ -387,7 +389,6 @@ class Training():
         with self.training_strategy:
 
             self.model = Dense_model(self.param.N_nodes, 
-                                     len(self.param.parameters.keys()),
                                      self.output_dim,
                                      input_normaliser=self.input_normaliser,
                                      output_unnormaliser=self.unnormalise,
@@ -399,7 +400,7 @@ class Training():
                                loss=self.loss_fun)
 
             if self.param.warm_start and previous_model is not None:
-                old_model = tf.keras.models.load_model(f'trained_models/{previous_model}', compile=False)
+                old_model = tf_keras.models.load_model(f'trained_models/{previous_model}', compile=False)
                 _ = self.model(tf.zeros((1, len(self.param.parameters.keys()))))
                 # Safety check
                 old_vars = old_model.trainable_variables
@@ -413,10 +414,10 @@ class Training():
                     nv.assign(ov)
 
         self.model.build((None, len(self.param.parameters.keys())))
-        print(self.model.summary())
         self.history = self.model.fit(self.train_dataset,
                                       epochs=self.param.epochs,
                                       validation_data=self.val_dataset,
+                                      shuffle=False,
                                       callbacks=[KeepBestEpoch(),
                                                  #ReduceLROnPlateau(patience=30,
                                                  #                  factor=0.7,
@@ -424,6 +425,8 @@ class Training():
                                                  #                  )
                                                  ]
                                       )
+
+        print(self.model.summary())
 
         if output_file != None:
             sys.stdout.close()
@@ -461,6 +464,7 @@ class Training():
                 while os.path.isdir(self.save_path + f'_{M}'):
                     M += 1
                 self.save_path += f'_{M}'
+
         self.model.save(self.save_path)
 
         os.system(f"cp {self.param.param_file} {os.path.join(self.save_path, 'log.param')}")

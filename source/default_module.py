@@ -36,6 +36,7 @@ class Parameters():
                    'sampling'             :  ( 'lhc'                   ,  str          ),
                    ### Additional parameters for iterative sampling
                    'N_max_points'         :  ( 10000                   ,  int          ),
+                   'N_first_iteration'    :  ( 5000                    ,  int          ),
                    'mcmc_sampler'         :  ( 'cobaya'                ,  str          ),
                    'initial_model'        :  ( None                    ,  str          ),
                    'initial_sampling'     :  ( 'hypersphere'           ,  str          ),

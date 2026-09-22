@@ -40,7 +40,8 @@ def create_output_folders(param,            # Parameter object
                         os.mkdir(os.path.join(path, f'N-{param.N}/{output_name}_{arr}_data'))
                 for output in output_structure['Scalar']['list']:
                     output_name = output.replace('output_','').replace('_output','')
-                    os.mkdir(os.path.join(path, f'N-{param.N}/{output_name}_data'))
+                    if len(getattr(param, output)) > 0:
+                        os.mkdir(os.path.join(path, f'N-{param.N}/{output_name}_data'))
 
 
             elif reset:
@@ -67,7 +68,8 @@ def create_output_folders(param,            # Parameter object
                     os.mkdir(os.path.join(path, f'number_{iter_num}/{output_name}_{arr}_data'))
             for output in output_structure['Scalar']['list']:
                 output_name = output.replace('output_','').replace('_output','')
-                os.mkdir(os.path.join(path, f'number_{iter_num}/{output_name}_data'))
+                if len(getattr(param, output)) > 0:
+                    os.mkdir(os.path.join(path, f'number_{iter_num}/{output_name}_data'))
 
 
 def join_data_files(param     # Parameter object
@@ -133,8 +135,9 @@ def combine_iterations_data(param,             # Parameter object
 
     for idx, output in enumerate(output_structure['Scalar']['list']):
         output_name = output.replace('output_','').replace('_output','')
-        combine_sets_of_data_files(os.path.join(path_i, f'{output_name}.txt'),
-                                   os.path.join(path_j, f'{output_name}.txt'))
+        if len(getattr(param, output)) > 0:
+            combine_sets_of_data_files(os.path.join(path_i, f'{output_name}.txt'),
+                                       os.path.join(path_j, f'{output_name}.txt'))
     for idx, output in enumerate(output_structure['1D']['list']):
         output_name = output.replace('output_','').replace('_output','')
         x_array = output_structure['1D']['x_arr'][idx]
@@ -181,11 +184,11 @@ def get_node_with_most_cpus():
         num_cpu[node_name] = n
 
     max_node = max(num_cpu, key=num_cpu.get)
-    while '[' in max_node:
-        _ = num_cpu.pop(max_node)
-        max_node = max(num_cpu, key=num_cpu.get)
+    if '[' in max_node:
+        root = max_node.split('[')[0]
+        max_node = root + max_node.replace(root, '').replace('[', '').replace(']', '').split(',')[0]
 
-    return max_node
+    return max_node, num_cpu[max_node]
 
 
 def get_covmat(param):
@@ -214,6 +217,8 @@ def get_covmat(param):
 
     for i, p in enumerate(params):
         if p in param.sigma_guesses:
+            cov_new[i,:] = np.zeros(cov_new.shape[1])
+            cov_new[:,i] = np.zeros(cov_new.shape[0])
             cov_new[i,i] = param.sigma_guesses[p]**2
         elif path is None:
             cov_new[i,i] = ((param.parameters[p][1] - param.parameters[p][0])/10)**2

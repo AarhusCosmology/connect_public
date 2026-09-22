@@ -4,6 +4,7 @@ from pathlib import Path
 from types import ModuleType
 
 import tensorflow as tf
+import tf_keras
 
 FILE_PATH = os.path.realpath(os.path.dirname(__file__))
 CONNECT_PATH = Path(FILE_PATH).parents[4]
@@ -95,9 +96,9 @@ class Class():
         # Load keras model (try trained_models path then raw name)
         try:
             try:
-                self.model = tf.keras.models.load_model(os.path.join(CONNECT_PATH, 'trained_models', name), compile=False)
+                self.model = tf_keras.models.load_model(os.path.join(CONNECT_PATH, 'trained_models', name), compile=False)
             except Exception:
-                self.model = tf.keras.models.load_model(name, compile=False)
+                self.model = tf_keras.models.load_model(name, compile=False)
         except Exception:
             raise NameError(f"No trained model by the name of '{name}'")
 

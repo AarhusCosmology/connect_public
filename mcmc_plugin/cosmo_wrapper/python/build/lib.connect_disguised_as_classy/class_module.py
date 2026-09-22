@@ -6,6 +6,7 @@ from pathlib import Path
 
 from scipy.interpolate import CubicSpline
 import tensorflow as tf
+import tf_keras
 import numpy as np
 
 FILE_PATH = os.path.realpath(os.path.dirname(__file__))
@@ -65,10 +66,10 @@ class Class(real_classy.Class):
                 name = self.model_name
         try:
             try:
-                self.model = tf.keras.models.load_model(os.path.join(CONNECT_PATH,'trained_models',name), compile=False)
-            except:
-                self.model = tf.keras.models.load_model(name, compile=False)
-        except:
+                self.model = tf_keras.models.load_model(os.path.join(CONNECT_PATH, 'trained_models', name), compile=False)
+            except Exception:
+                self.model = tf_keras.models.load_model(name, compile=False)
+        except Exception:
             raise NameError(f"No trained model by the name of '{name}'")
 
         try:
@@ -441,7 +442,7 @@ class Class(real_classy.Class):
                     out = self.output_predict[self.output_interval['bg']['ang.diam.dist.'][0]:
                                               self.output_interval['bg']['ang.diam.dist.'][1]]
                     spline = CubicSpline(self.z_bg, out, bc_type='natural')
-                    self.cached_splines['anugular_distance'] = spline
+                    self.cached_splines['angular_distance'] = spline
                     return float(spline(z))
             elif self.compute_class_background:
                 return super(Class, self).angular_distance(z)

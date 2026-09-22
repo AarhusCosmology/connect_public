@@ -98,10 +98,8 @@ class HypersphereSampler():
                 yield c
 
     def run(self):
-        print('running hypersphere sampler')
         data = np.array(list(itertools.islice(self.get_transformed_hypersphere_vector_with_bbox(),self.N)))
         data += self.bounds[:,1]
-        print('hypersphere sampler done')
         return data
 
 class PickleSampler():

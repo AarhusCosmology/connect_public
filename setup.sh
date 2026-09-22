@@ -110,15 +110,125 @@ install_conda_env() {
     local env_name="$1"
     info "Creating Conda environment '${env_name}'..."
     $DRYRUN && return
+
+    # Determine best solver: mamba → conda with new solver → conda legacy
+    DEFAULT_CONDA_ENVDIR=$(conda info --json | python -c "import sys, json; print(json.load(sys.stdin)['envs_dirs'][0])")
+    export PATH="resources/micromamba/bin:$PATH"
+    if command -v mamba >/dev/null 2>&1; then
+	export MAMBA_ROOT_PREFIX=${DEFAULT_CONDA_ENVDIR%/envs}
+        SOLVER="mamba create"
+    elif conda create --help 2>&1 | grep -q -- "--solver" && conda create --help 2>&1 | grep -q -- "libmamba"; then
+        SOLVER="conda create --solver=libmamba"
+    elif command -v micromamba >/dev/null 2>&1; then
+	export MAMBA_ROOT_PREFIX=${DEFAULT_CONDA_ENVDIR%/envs}
+        SOLVER="micromamba create"
+    else
+	info "installing micromamba for faster environment creation..."
+	mkdir -p resources
+	mkdir -p resources/micromamba
+        MM_DIR="resources/micromamba"
+        mkdir -p "$MM_DIR/bin"
+
+        if [[ ! -x "$MM_DIR/bin/micromamba" ]]; then
+            echo "Installing micromamba locally..."
+            # Determine platform
+            OS_TYPE="$(uname | tr '[:upper:]' '[:lower:]')"
+            case "$OS_TYPE" in
+                linux)
+                    MM_PLATFORM="linux-64"
+                    ;;
+                darwin)
+		    if [[ "$(uname -m)" == "arm64" ]]; then
+			MM_PLATFORM="osx-arm64"
+		    else
+			MM_PLATFORM="osx-64"
+		    fi
+                    ;;
+                *)
+                    echo "Unsupported OS: $OS_TYPE"
+                    exit 1
+                    ;;
+            esac
+            # Download micromamba
+            curl -Ls "https://micro.mamba.pm/api/micromamba/${MM_PLATFORM}/latest" \
+                -o "$MM_DIR/micromamba.tar.bz2"
+            # Extract only the micromamba binary
+            tar -xjf "$MM_DIR/micromamba.tar.bz2" -C "$MM_DIR" bin/micromamba
+            rm "$MM_DIR/micromamba.tar.bz2"
+        fi
+        export PATH="$MM_DIR/bin:$PATH"
+	export MAMBA_ROOT_PREFIX=${DEFAULT_CONDA_ENVDIR%/envs}
+	SOLVER="micromamba create"
+    fi
+    echo "Using solver: $SOLVER"
+
     conda clean --index-cache -y || true
     conda env remove -y --name "$env_name" 2>/dev/null || true
     rm -rf "$(conda info --base)/envs/$env_name" 2>/dev/null || true
-    conda create -y -n "$env_name" python=3.11
+
+    common_packages=(
+	"python=3.12"
+	"cython=3.2"
+	"scipy=1.16"
+	"numpy=1.26"
+	"astropy=6.1"
+	"numexpr=2.8"
+	"pandas=2.2"
+	"matplotlib=3.9"
+	"mpi4py=4.0"
+	"pip"
+	"cfitsio"
+	"libblas=*=*openblas"
+	"liblapack=*=*openblas"
+    )
+
+    case "$(uname -s)" in
+	Linux)
+            platform_packages=(
+		"gcc_linux-64"
+		"gxx_linux-64"
+		"gfortran_linux-64"
+            )
+            ;;
+
+	Darwin)
+            platform_packages=(
+		"gfortran"
+            )
+            ;;
+    esac
+
+    if [[ "$system_mpi" != "yes" ]]; then
+	platform_packages+=("openmpi")
+    fi
+
+    $SOLVER -y -n "$env_name" \
+	    "${common_packages[@]}" \
+	    "${platform_packages[@]}" \
+	    --override-channels \
+	    --channel conda-forge
+
+    if [[ "$SOLVER" == *"mamba"* ]]; then
+	echo -e "${YELLOW}Note: You should activate the environment with ${BLUE}conda activate $env_name${NC}"
+    fi
+
+    set +u
     conda activate "$env_name"
-    conda config --env --add channels conda-forge
-    conda config --env --set channel_priority strict
-    conda install cython=3.0 scipy=1.11 numpy=1.26 astropy=5.1 pip=23.2 numexpr=2.8 pandas=2.0 \
-	  matplotlib=3.7 tensorflow=2.13 tensorflow-probability=0.21.0 openmpi mpi4py==3.1.4 -y
+    set -u
+
+    if [[ "$(uname -s)" == "Linux" && "$use_gpu" == "yes" ]]; then
+	python -m pip install \
+               "tensorflow[and-cuda]==2.16.1" \
+               "tf-keras==2.16.*" \
+               "tensorflow-probability==0.24.*"
+    else
+	python -m pip install \
+               "tensorflow==2.16.1" \
+               "tf-keras==2.16.*" \
+               "tensorflow-probability==0.24.*"
+    fi
+
+    pip install best-inference
     pip install sshkeyboard playsound
     if [[ "$OSTYPE" == "darwin"* ]]; then
         pip install -q pyobjc-core pyobjc-framework-Cocoa
@@ -127,15 +237,24 @@ install_conda_env() {
 }
 
 install_clik() {
+    if ! [ -z $env_name ]; then
+	set +u
+        conda activate "$env_name"
+	set -u
+    fi
     info "Downloading and building Planck likelihood code..."
     $DRYRUN && return
+    mkdir -p resources
     mkdir -p resources/planck2018 && cd resources/planck2018
 
     for file in COM_Likelihood_Code-v3.0_R3.01.tar.gz \
                 COM_Likelihood_Data-baseline_R3.00.tar.gz \
                 COM_Likelihood_Data-baseline_R2.00.tar.gz; do
+	echo "Downloading $file..."
         curl -sL "https://pla.esac.esa.int/pla/aio/product-action?COSMOLOGY.FILE_ID=${file}" -o "$file"
+	echo "Extracting $file..."
         tar xf "$file"
+	echo "Successfully extracted $file."
     done
 
     cp -r plc_2.0 code/plc_3.0/ || true
@@ -145,8 +264,65 @@ install_clik() {
     rm -rf plc-3.01 || true
     git clone https://github.com/benabed/clik.git plc-3.01
     cd plc-3.01
+
+    python - <<'PY'
+from pathlib import Path
+
+p = Path("src/python/clik/lkl.pyx")
+s = p.read_text()
+
+old = "cdic_free(&opt_dic)"
+new = "cdic_free(<void **>&opt_dic)"
+
+if old in s:
+    p.write_text(s.replace(old, new))
+    print("Patched clik Cython void** incompatibility.")
+elif new in s:
+    print("clik Cython void** patch already applied.")
+else:
+    raise RuntimeError(
+        "Could not find expected cdic_free(&opt_dic) in src/python/clik/lkl.pyx"
+    )
+PY
     cd "$BASEPWD"
     ok "Planck likelihood code ready."
+}
+
+patch_clik_profile() {
+    CLIK_PROFILE="$c_path/bin/clik_profile.zsh"
+
+    info "Patching clik_profile.zsh to remove DYLD_LIBRARY_PATH modifications..."
+    python - "$CLIK_PROFILE" <<'PY'
+from pathlib import Path
+import sys
+import re
+
+p = Path(sys.argv[1])
+text = p.read_text()
+
+# Remove complete shell blocks that modify DYLD_LIBRARY_PATH.
+pattern = re.compile(
+    r'''if \[ -z "\$\{DYLD_LIBRARY_PATH\}" \]; then\s*
+DYLD_LIBRARY_PATH=.*?\s*
+export DYLD_LIBRARY_PATH\s*
+else\s*
+export DYLD_LIBRARY_PATH=\$\(add_path_element "\$DYLD_LIBRARY_PATH" .*?\)\s*
+fi\s*''',
+    re.DOTALL,
+)
+
+new, n = pattern.subn("", text)
+
+if n == 0:
+    raise RuntimeError(
+        f"No DYLD_LIBRARY_PATH blocks found in {p}; "
+        "clik_profile.zsh format may have changed."
+    )
+
+p.write_text(new)
+print(f"Removed {n} DYLD_LIBRARY_PATH blocks from {p}")
+PY
+    info "Patched clik_profile.zsh successfully."
 }
 
 install_montepython() {
@@ -154,6 +330,11 @@ install_montepython() {
     local install_mn="$2"
     local c_path="$3"
     local mp_path="$4"
+    if ! [ -z $env_name ]; then
+	set +u
+	conda activate "$env_name"
+	set -u
+    fi
 
     if [ -z "$mp_path" ]; then
 	info "Cloning Monte Python into resources..."
@@ -181,16 +362,20 @@ install_montepython() {
         mkdir -p resources && cd resources
         git clone https://github.com/JohannesBuchner/MultiNest.git
         mkdir -p MultiNest/build && cd MultiNest/build
-    
-        CC=clang
-        CXX=clang++
-        FC=gfortran
+
+	if [[ "$OSTYPE" == "darwin"* ]]; then
+            CC=clang
+            CXX=clang++
+	else
+	    CC=gcc
+	    CXX=g++
+	fi
+	FC=gfortran
         cmake -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX -DCMAKE_Fortran_COMPILER=$FC ..
     
-        make -j1
+        make -j
         cd ../../..
 
-	conda activate "$env_name"
         pip install pymultinest==2.12 git+https://github.com/PolyChord/PolyChordLite@master
         ok "MultiNest and PolyChord installed."
     fi
@@ -204,11 +389,23 @@ install_montepython() {
         info "Configuring Planck likelihood..."
         cd "$c_path"
 	if [[ "$OSTYPE" == "darwin"* ]]; then
-	    CXX=clang++ CC=clang arch -arm64 python ./waf configure --install_all_deps --cfitsio_install
+	    # build with macOS compilers
+	    export CC=/usr/bin/clang
+	    export CXX=/usr/bin/clang++
+	    export FC="$CONDA_PREFIX/bin/gfortran"
+	    arch -arm64 python ./waf configure --lapack_prefix="$CONDA_PREFIX" --cfitsio_prefix="$CONDA_PREFIX"
 	    arch -arm64 python ./waf install
+	    patch_clik_profile
 	else
-            ./waf configure --lapack_mkl=$MKLROOT --cfitsio_install
-            ./waf install
+	    export CFLAGS="-Wno-implicit-int"
+	    export CXXFLAGS="-Wno-implicit-int"
+	    export CC="${CC:-$(command -v gcc)}"
+	    export CXX="${CXX:-$(command -v g++)}"
+	    export FC="${FC:-$(command -v gfortran)}"
+	    export F77="$FC"
+	    export F90="$FC"
+	    ./waf configure --gcc --gfortran --lapack_prefix="$CONDA_PREFIX" --cfitsio_prefix="$CONDA_PREFIX"
+	    ./waf install
 	fi
         cd "$BASEPWD"
 
@@ -231,6 +428,11 @@ install_montepython() {
 install_class() {
     local env_name="$1"
     local class_path="$2"
+    if ! [ -z $env_name ]; then
+	set +u
+	conda activate "$env_name"
+	set -u
+    fi
 
     if [ -z "$class_path" ]; then
         info "Cloning CLASS into resources..."
@@ -259,13 +461,13 @@ install_class() {
             export CC=clang CXX=clang++ CFLAGS="-O2 -stdlib=libc++" CXXFLAGS="-O2 -stdlib=libc++" LDFLAGS="-stdlib=libc++"
             PATH=$(echo $PATH | tr ':' '\n' | grep -v gcc | grep -v g++ | paste -sd: -)
         fi
-        pip install .
+        python -m pip install --no-build-isolation .
         cd "$BASEPWD"
     else
         info "Using existing CLASS installation: $class_path"
 	$DRYRUN && return
         cd "$class_path"
-        pip install .
+        python -m pip install --no-build-isolation .
         cd "$BASEPWD"
     fi
     ok "CLASS ready."
@@ -276,7 +478,11 @@ install_cobaya() {
     local c_path="$2"
     info "Installing Cobaya..."
     $DRYRUN && return
-    conda activate "$env_name"
+    if ! [ -z $env_name ]; then
+	set +u
+	conda activate "$env_name"
+	set -u
+    fi
     pip install cobaya==3.3
 
     if [ -z "$c_path" ] && [ "$setup_clik" == "yes" ]; then
@@ -285,18 +491,30 @@ install_cobaya() {
 	c_path="$clik_path"
     fi
     if [ "$setup_clik" == "yes" ]; then
-	info "Configuring Planck likelihood..."
+        info "Configuring Planck likelihood..."
         cd "$c_path"
-	if [[ "$OSTYPE" == "darwin"* ]]; then
-	    CXX=clang++ CC=clang arch -arm64 python ./waf configure --install_all_deps --cfitsio_install
-	    arch -arm64 python ./waf install
-	else
-            ./waf configure --lapack_mkl=$MKLROOT --cfitsio_install
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            # build with macOS compilers
+	    export CC=/usr/bin/clang
+	    export CXX=/usr/bin/clang++
+	    export FC="$CONDA_PREFIX/bin/gfortran"
+            arch -arm64 python ./waf configure --lapack_prefix="$CONDA_PREFIX" --cfitsio_prefix="$CONDA_PREFIX"
+            arch -arm64 python ./waf install
+	    patch_clik_profile
+        else
+            export CFLAGS="-Wno-implicit-int"
+            export CXXFLAGS="-Wno-implicit-int"
+            export CC="${CC:-$(command -v gcc)}"
+            export CXX="${CXX:-$(command -v g++)}"
+            export FC="${FC:-$(command -v gfortran)}"
+            export F77="$FC"
+            export F90="$FC"
+            ./waf configure --gcc --gfortran --lapack_prefix="$CONDA_PREFIX" --cfitsio_prefix="$CONDA_PREFIX"
             ./waf install
-	fi
+        fi
         cd "$BASEPWD"
 
-	setup_clik="no"
+        setup_clik="no"
     fi
 
     info "Configuring Cobaya..."
@@ -316,21 +534,15 @@ install_cobaya() {
     ok "Cobaya ready."
 }
 
-install_planck_lite_python() {
-    info "Installing Planck lite python..."
-    $DRYRUN && return
-    mkdir -p resources
-    cd resources
-    git clone https://github.com/heatherprince/planck-lite-py.git planck_lite_py
-    cd "$BASEPWD"
-    ok "Planck lite python ready."
-}
-
 install_camb() {
     local env_name="$1"
     info "Installing CAMB..."
     $DRYRUN && return
-    conda activate "$env_name"
+    if ! [ -z $env_name ]; then
+	set +u
+	conda activate "$env_name"
+	set -u
+    fi
     pip install --upgrade camb
     ok "CAMB ready."
 }
@@ -344,6 +556,8 @@ echo -e "${GREEN}CONNECT setup script${NC}\n"
 
 create_env=""
 env_name=""
+use_gpu=""
+system_mpi=""
 setup_mp=""
 montepython_path=""
 MN_PC=""
@@ -358,6 +572,8 @@ camb=""
 ask create_env "Create conda environment?" "yes" "yes"
 if [ "$create_env" == "yes" ]; then
     ask env_name "Name of environment" "" "ConnectEnvironment"
+    ask use_gpu "Use GPU acceleration (TensorFlow with GPU support)?" "yes" "no"
+    ask system_mpi "Use system MPI (must be loaded) instead of conda-installed MPI?" "yes" "yes"
 else
     warn "Skipping environment creation. CONNECT will use your current environment."
     warn "You are responsible for having compatible versions of dependencies."
@@ -380,9 +596,6 @@ ask setup_clik "Use Planck likelihoods with CONNECT (requires CLIK)?" "yes" "yes
 if [ "$setup_clik" == "yes" ]; then
     ask clik_path "Enter path to existing clik data (path/to/code/plc_3.0/plc-3.01/) or leave blank to auto-install" "" ""
 fi
-
-# === Planck lite python ===
-ask setup_planck_lite "Install Planck-lite Python package?" "yes" "yes"
 
 # === CLASS ===
 ask class "Use CLASS with CONNECT?" "yes" "yes"
@@ -433,6 +646,10 @@ clik_display=$(path_display "$setup_clik" "$clik_path" "$default_clik_path")
 
 # Print summary
 printf "  %-20s : %s %s\n" "Conda environment" "$(color_flag $create_env)" "$env_display"
+if [ "$create_env" == "yes" ]; then
+    printf "  %-20s : %s\n" "Use GPU acceleration" "$(color_flag $use_gpu)"
+    printf "  %-20s : %s\n" "Use system MPI" "$(color_flag $system_mpi)"
+fi
 printf "  %-20s : %s %s\n" "MontePython" "$(color_flag $setup_mp)" "$mp_display"
 if [ "$setup_mp" == "yes" ]; then
     printf "  %-20s : %s\n" "MultiNest/PolyChord" "$(color_flag $MN_PC)"
@@ -441,7 +658,6 @@ printf "  %-20s : %s\n" "Cobaya" "$(color_flag $cobaya)"
 printf "  %-20s : %s %s\n" "CLASS" "$(color_flag $class)" "$class_display"
 printf "  %-20s : %s\n" "CAMB" "$(color_flag $camb)"
 printf "  %-20s : %s %s\n" "CLIK" "$(color_flag $setup_clik)" "$clik_display"
-printf "  %-20s : %s\n" "Planck lite Python" "$(color_flag $setup_planck_lite)"
 
 echo -e "\n${BLUE}--------------------------------------------------------------${NC}"
 
@@ -452,6 +668,12 @@ fi
 
 # === EXECUTION ===
 
+if [ -z $env_name ]; then
+    if ! [ "$CONDA_DEFAULT_ENV" == "base" ]; then
+	env_name=$CONDA_DEFAULT_ENV
+    fi
+fi
+
 # Source conda if available
 if command -v conda >/dev/null 2>&1; then
     CONDA_BASE=$(conda info --base 2>/dev/null)
@@ -461,22 +683,24 @@ if command -v conda >/dev/null 2>&1; then
 fi
 
 # Source bashrc/profile to get conda if not already available
+set +u
 if [ -f ~/.bashrc ]; then
     grep -q "read -p" ~/.bashrc || source ~/.bashrc >/dev/null 2>&1
 fi
 if [ -f ~/.bash_profile ]; then
     grep -q "read -p" ~/.bash_profile || source ~/.bash_profile >/dev/null 2>&1
 fi
+set -u
 
 # Load modules only if 'module' command exists
 if command -v module >/dev/null 2>&1; then
-    module load gcc openmpi cmake 2>/dev/null || true
+    module load gcc 2>/dev/null || true
+    module load openmpi 2>/dev/null || true
+    module load cmake 2>/dev/null || true
 fi
-
 
 [ "$create_env" == "yes" ] && install_conda_env "$env_name"
 [ "$setup_mp" == "yes" ] && install_montepython "$env_name" "$MN_PC" "$clik_path" "$montepython_path"
-[ "$setup_planck_lite" == "yes" ] && install_planck_lite_python
 [ "$cobaya" == "yes" ] && install_cobaya "$env_name" "$clik_path"
 [ "$class" == "yes" ] && install_class "$env_name" "$class_path"
 [ "$camb" == "yes" ] && install_camb "$env_name"

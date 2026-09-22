@@ -73,16 +73,17 @@ class CreateSingleDataFile():
         for idx, output in enumerate(self.output_structure['Scalar']['list']):
             output_name = output.replace('output_','').replace('_output','')
             i = 0
-            with open(os.path.join(self.path, f'{output_name}.txt'),'w') as f:
-                for filename in sorted(os.listdir(os.path.join(self.path, f'{output_name}_data'))):
-                    if filename.endswith('.txt'):
-                        with open(os.path.join(self.path, f'{output_name}_data', filename),'r') as g:
-                            for line in g:
-                                if line[0] == '#' and i == 0:
-                                    f.write(line)
-                                    i = 1
-                                elif line[0] != '#':
-                                    f.write(line)
+            if len(getattr(self.param, output)) > 0:
+                with open(os.path.join(self.path, f'{output_name}.txt'),'w') as f:
+                    for filename in sorted(os.listdir(os.path.join(self.path, f'{output_name}_data'))):
+                        if filename.endswith('.txt'):
+                            with open(os.path.join(self.path, f'{output_name}_data', filename),'r') as g:
+                                for line in g:
+                                    if line[0] == '#' and i == 0:
+                                        f.write(line)
+                                        i = 1
+                                    elif line[0] != '#':
+                                        f.write(line)
 
 
         i = 0

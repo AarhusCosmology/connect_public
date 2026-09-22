@@ -6,6 +6,7 @@ from pathlib import Path
 
 from scipy.interpolate import CubicSpline
 import tensorflow as tf
+import tf_keras
 import numpy as np
 import camb
 
@@ -71,10 +72,10 @@ class Class():
                 name = self.model_name
         try:
             try:
-                self.model = tf.keras.models.load_model(os.path.join(CONNECT_PATH,'trained_models',name), compile=False)
-            except:
-                self.model = tf.keras.models.load_model(name, compile=False)
-        except:
+                self.model = tf_keras.models.load_model(os.path.join(CONNECT_PATH, 'trained_models', name), compile=False)
+            except Exception:
+                self.model = tf_keras.models.load_model(name, compile=False)
+        except Exception:
             raise NameError(f"No trained model by the name of '{name}'")
 
         try:

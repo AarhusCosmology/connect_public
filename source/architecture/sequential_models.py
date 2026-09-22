@@ -1,13 +1,13 @@
 import tensorflow as tf
 import numpy as np
+import tf_keras
 
 from ..custom_functions import ActivationFunctions
 from ..Splines import Spline
 
-class Dense_model(tf.keras.Model):
+class Dense_model(tf_keras.Model):
     def __init__(self,
                  N_nodes,
-                 num_parameters,
                  num_out,
                  activation='alsing',
                  input_normaliser=lambda x: x,
@@ -17,10 +17,14 @@ class Dense_model(tf.keras.Model):
                  batch_norm=False,
                  ell_computed=[2,3,4,5]):
 
-        # Inherit from tf.keras.Model
+        # Inherit from tf_keras.Model
         super(Dense_model, self).__init__()
 
         # Define attributes
+        self.N_nodes = N_nodes
+        self.num_out = num_out
+        self.activation_name = activation
+
         self.dropout_bool = dropout
         self.batch_norm_bool = batch_norm
         self._train_normalise = True
@@ -30,7 +34,6 @@ class Dense_model(tf.keras.Model):
         self.cached_output = []
 
         self.input_normaliser = input_normaliser
-        self.num_parameters = num_parameters
         self.num_hidden_layers = num_hidden_layers
         self.hidden_layers = []
         self.batch_norm_layers = []
@@ -43,37 +46,34 @@ class Dense_model(tf.keras.Model):
 
         ### Define architecture ###
 
-        # Create input layer
-        self.input_layer = tf.keras.layers.InputLayer(input_shape=(self.num_parameters,))
         # Create hidden layers
-        self.act_params = []
+        self.activations = []
         for i in range(self.num_hidden_layers):
             # Set the chosen activation function
-            Act = ActivationFunctions(N_nodes)
-            if callable(getattr(Act, activation, None)):
-                _locals = {}
-                exec('act_fun = Act.' + activation, locals(), _locals)
-                act_fun = _locals['act_fun']
-                for name in (Act.params[activation]):
-                    self.act_params.append(eval(f'Act.{name}'))
+            Act = ActivationFunctions()
+            act_fun_custom = getattr(Act, self.activation_name, None)
+            if callable(act_fun_custom):
+                self.activations.append(act_fun_custom)
+                act_fun = 'linear'
             else:
-                act_fun = activation
+                self.activations.append(lambda x: x)
+                act_fun = self.activation_name
             # Create hidden layer
-            self.hidden_layers.append(tf.keras.layers.Dense(N_nodes, activation=act_fun, kernel_initializer='glorot_normal', bias_initializer='glorot_normal', kernel_constraint=tf.keras.constraints.MaxNorm(5)))
+            self.hidden_layers.append(tf_keras.layers.Dense(self.N_nodes, activation=act_fun, kernel_initializer='glorot_normal', bias_initializer='glorot_normal', kernel_constraint=tf_keras.constraints.MaxNorm(5)))
             if self.dropout_bool:
-                self.dropout_layers.append(tf.keras.layers.Dropout(0.2))
+                self.dropout_layers.append(tf_keras.layers.Dropout(0.2))
             if i%5 == 4 and self.batch_norm_bool:
-                self.batch_norm_layers.append(tf.keras.layers.BatchNormalization())
+                self.batch_norm_layers.append(tf_keras.layers.BatchNormalization())
         # Create output layer
-        self.output_layer = tf.keras.layers.Dense(num_out, activation='linear', kernel_initializer='glorot_normal', bias_initializer='glorot_normal')
+        self.output_layer = tf_keras.layers.Dense(self.num_out, activation='linear', kernel_initializer='glorot_normal', bias_initializer='glorot_normal')
         self.unnormalise_layer = UnnormaliseOutputLayer(output_unnormaliser)
 
 
     def call(self, x, **kwargs):
         x = self.input_normaliser(x)
-        x = self.input_layer(x)
         for i in range(self.num_hidden_layers):
             x = self.hidden_layers[i](x)
+            x = self.activations[i](x)
             if self.dropout_bool:
                 x = self.dropout_layers[i](x)
             if i%5 == 4 and self.batch_norm_bool:
@@ -82,6 +82,9 @@ class Dense_model(tf.keras.Model):
         x = self.unnormalise_layer(x)
         return x
 
+    def build(self, input_shape):
+        super(Dense_model, self).build(input_shape)
+        self.built = True
 
     @tf.function(input_signature=[])
     def get_raw_info(self):
@@ -108,7 +111,11 @@ class Dense_model(tf.keras.Model):
 
     def get_config(self):
         config = super().get_config()
-        config['raw_info'] = self.raw_info
+
+        config.update({
+            "raw_info": self.raw_info,
+        })
+
         return config
 
     @tf.function(input_signature=[tf.TensorSpec([None,None], dtype=tf.float32)])
@@ -162,7 +169,7 @@ class Dense_model(tf.keras.Model):
             print('No derived parameters were emulated')
 
 
-class UnnormaliseOutputLayer(tf.keras.layers.Layer):
+class UnnormaliseOutputLayer(tf_keras.layers.Layer):
 
     def __init__(self, output_unnormalise, **kwargs):
         super(UnnormaliseOutputLayer, self).__init__(**kwargs)

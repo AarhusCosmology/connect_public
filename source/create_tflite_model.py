@@ -14,6 +14,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 import tensorflow as tf
+import tf_keras
 import numpy as np
 from scipy.optimize import minimize
 
@@ -59,7 +60,7 @@ class Convert_to_TFLite:
 
     def load_and_rescale_model(self):
         print('converting model to tflite...')
-        self.model = tf.keras.models.load_model(self.tf_model_path, compile=False)
+        self.model = tf_keras.models.load_model(self.tf_model_path, compile=False)
         self.info_dict = eval(self.model.get_raw_info().numpy().decode('utf-8'))
 
         self.param = SourceFileLoader(self.tf_model_path+'/log.param', self.tf_model_path+'/log.param').load_module()
@@ -152,7 +153,7 @@ class Convert_to_TFLite:
         tree.write(svg_file)
     
     
-    def render_latex_to_svg(self, latex_string, output_file, fontsize='\Large'):
+    def render_latex_to_svg(self, latex_string, output_file, fontsize=r'\Large'):
         # Define the endpoint URL of CodeCogs API
         url = 'https://latex.codecogs.com/svg.image?'
         latex_string = f"{fontsize} {latex_string}"
@@ -348,7 +349,10 @@ class Convert_to_TFLite:
         
         midpoint = np.ones(len(params))/2
         rescaled_bounds = [(0,1)]*len(params)
-        midpoint[5] = 0.1
+        if 'tau_reio' in self.info_dict['input_names']:
+            # get index of tau_reio
+            tau_reio_idx = self.info_dict['input_names'].index('tau_reio')
+            midpoint[tau_reio_idx] = 0.1
         
         res = minimize(rescaled_log_prob, midpoint, options={'xatol':1e-9, 'fatol':0.001}, bounds=rescaled_bounds, method='Nelder-Mead')
         unscaled_params = res.x*(params[:,1] - params[:,0]) + params[:,0]
