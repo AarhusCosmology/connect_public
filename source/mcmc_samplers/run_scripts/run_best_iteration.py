@@ -74,22 +74,11 @@ if use_planck_lite_highl or use_planck_lite_lowl_TT or use_planck_lite_lowl_EE:
         nuisance_priors.append(lambda x: -0.5*((x-1)/0.0025)**2)
     nuisance_indices.append([nuisance_params.index("A_planck")])
 
-num_nuisance = len(nuisance_params)
-def log_prob_fn(x):
-    x_cosmo = x[..., :-num_nuisance]
-    x_nuisance = x[..., -num_nuisance:]
-    loglkl = tf.zeros(tf.shape(x)[:-1], dtype=tf.float32)
-    for lkl, nuisance_idxs in zip(likelihoods, nuisance_indices):
-        x_nuisance_subset = tf.gather(x_nuisance, nuisance_idxs, axis=-1)
-        loglkl += lkl(tf.concat([x_cosmo, x_nuisance_subset], axis=-1))
-    for i, prior in enumerate(nuisance_priors):
-        loglkl += prior(x_nuisance[..., i])
-    return loglkl
-
 names_sampled = []
 limits = []
 bestfit_guesses = []
 sigma_guesses = []
+log_prior = []
 for par,interval in param.parameters.items():
     if par in param.prior_ranges:
         if param.prior_ranges[par][0] != 'None':
@@ -112,6 +101,7 @@ for par,interval in param.parameters.items():
     else:
         sig = abs((interval[1] - interval[0])/10)
     if par in param.log_priors:
+        log_prior.append(True)
         if xmin != -1e+32:
             xmin = np.log10(xmin)
         else:
@@ -125,6 +115,8 @@ for par,interval in param.parameters.items():
             sig = sig * ( abs( np.log10( abs(interval[1]) ) - np.log10( abs(interval[0]) ) ) /
                           abs( interval[1] - interval[0] ) )
         par = par + '_log10_prior'
+    else:
+        log_prior.append(False)
     names_sampled.append(par)
     limits.append([xmin, xmax])
     bestfit_guesses.append(guess)
@@ -136,6 +128,26 @@ for i in range(len(nuisance_params)):
     limits.append(nuisance_limits[i])
     bestfit_guesses.append(nuisance_bestfit_guesses[i])
     sigma_guesses.append(nuisance_sigma_guesses[i])
+
+num_nuisance = len(nuisance_params)
+mask_tf = tf.constant(log_prior, dtype=tf.bool)
+def log_prob_fn(x):
+    x_cosmo_log_prior = x[..., :-num_nuisance]
+    x_nuisance = x[..., -num_nuisance:]
+
+    safe_x = tf.where(mask_tf[None, :], x_cosmo_log_prior, tf.zeros_like(x_cosmo_log_prior))
+    transformed = tf.pow(tf.cast(10.0, x_cosmo_log_prior.dtype), safe_x)
+    x_cosmo = tf.where(mask_tf[None, :], transformed, x_cosmo_log_prior)
+
+    loglkl = tf.zeros(tf.shape(x)[:-1], dtype=tf.float32)
+    for lkl, nuisance_idxs in zip(likelihoods, nuisance_indices):
+        x_nuisance_subset = tf.gather(x_nuisance, nuisance_idxs, axis=-1)
+        loglkl += lkl(tf.concat([x_cosmo, x_nuisance_subset], axis=-1))
+    for i, prior in enumerate(nuisance_priors):
+        loglkl += prior(x_nuisance[..., i])
+    return loglkl
+
+
 
 # create diagonal covmat from sigma_guesses
 covmat = np.diag(np.array(sigma_guesses)**2)

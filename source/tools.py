@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess as sp
 
 import numpy as np
@@ -160,33 +161,76 @@ def combine_iterations_data(param,             # Parameter object
 
 
 
+def count_cpu_ids(cpu_ids):
+    """Count CPUs in a Slurm CPU_IDs expression, e.g. '24-27,30,32-34'."""
+    n = 0
+
+    for part in cpu_ids.split(','):
+        part = part.strip()
+
+        if not part:
+            continue
+
+        if '-' in part:
+            start, end = map(int, part.split('-', 1))
+            n += end - start + 1
+        else:
+            n += 1
+
+    return n
+
+
+def expand_nodes(nodespec):
+    """Expand a Slurm hostlist expression into individual node names."""
+    result = sp.run(
+        ['scontrol', 'show', 'hostnames', nodespec],
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
+        text=True,
+        check=True
+    )
+
+    return result.stdout.splitlines()
+
 
 def get_node_with_most_cpus():
+    job_id = os.environ['SLURM_JOB_ID']
 
-    job_info_list = sp.run('scontrol show job -d $SLURM_JOB_ID', shell=True, stdout=sp.PIPE).stdout.decode('utf-8')
+    result = sp.run(
+        ['scontrol', 'show', 'job', '-d', job_id],
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
+        text=True,
+        check=True
+    )
 
-    node_info_list=[]
-    for line in iter(job_info_list.splitlines()):
-        if 'CPU_IDs' in line:
-            node_info_list.append(line)
+    job_info = result.stdout
 
-    num_cpu={}
-    for i, line in enumerate(node_info_list):
-        node_name = line.split('Nodes=')[-1].split(' CPU_IDs')[0]
-        cpu_list  = line.split('CPU_IDs=')[-1].split(' Mem')[0].split(',')
-        n=0
-        for c in cpu_list:
-            if '-' in c:
-                cc=c.split('-')
-                n+=int(cc[1])-int(cc[0])+1
-            else:
-                n+=1
-        num_cpu[node_name] = n
+    num_cpu = {}
+
+    # Find every "Nodes=... CPU_IDs=... Mem=..." section.
+    pattern = re.compile(
+        r'Nodes=(.*?)\s+CPU_IDs=(.*?)\s+Mem='
+    )
+
+    for match in pattern.finditer(job_info):
+        nodespec = match.group(1)
+        cpu_ids = match.group(2)
+
+        # Count CPUs represented by CPU_IDs
+        ncpus = count_cpu_ids(cpu_ids)
+
+        # Expand e.g. s82n[14-16,21-26] into individual node names
+        nodes = expand_nodes(nodespec)
+
+        # The CPU_IDs specification applies to every node in this group
+        for node in nodes:
+            num_cpu[node] = ncpus
+
+    if not num_cpu:
+        raise RuntimeError("Could not find node/CPU information in scontrol output")
 
     max_node = max(num_cpu, key=num_cpu.get)
-    if '[' in max_node:
-        root = max_node.split('[')[0]
-        max_node = root + max_node.replace(root, '').replace('[', '').replace(']', '').split(',')[0]
 
     return max_node, num_cpu[max_node]
 

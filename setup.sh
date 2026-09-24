@@ -175,7 +175,6 @@ install_conda_env() {
 	"numexpr=2.8"
 	"pandas=2.2"
 	"matplotlib=3.9"
-	"mpi4py=4.0"
 	"pip"
 	"cfitsio"
 	"libblas=*=*openblas"
@@ -216,6 +215,40 @@ install_conda_env() {
     conda activate "$env_name"
     set -u
 
+    if [[ "$system_mpi" == "yes" ]]; then
+	echo "→ Building mpi4py against system MPI..."
+
+	if ! command -v mpicc >/dev/null 2>&1; then
+            echo "ERROR: system MPI requested but mpicc is unavailable."
+            exit 1
+	fi
+
+	export OMPI_CC="$SYSTEM_CC"
+	export OMPI_CXX="$SYSTEM_CXX"
+	export OMPI_FC="$SYSTEM_FC"
+
+	MPICC="$(command -v mpicc)" \
+             python -m pip install \
+             --no-binary=mpi4py \
+             --no-cache-dir \
+             "mpi4py==4.0.*"
+
+	mkdir -p "$CONDA_PREFIX/etc/conda/activate.d"
+
+	cat > "$CONDA_PREFIX/etc/conda/activate.d/hpc_mpi.sh" <<'EOF'
+#!/usr/bin/env bash
+
+if command -v module >/dev/null 2>&1; then
+    module load gcc 2>/dev/null || true
+    module load openmpi 2>/dev/null || true
+fi
+EOF
+
+    else
+	echo "→ Installing Conda MPI + mpi4py..."
+	python -m pip install "mpi4py==4.0.*"
+    fi
+
     if [[ "$(uname -s)" == "Linux" && "$use_gpu" == "yes" ]]; then
 	python -m pip install \
                "tensorflow[and-cuda]==2.16.1" \
@@ -229,7 +262,7 @@ install_conda_env() {
     fi
 
     pip install best-inference
-    pip install sshkeyboard playsound
+    pip install sshkeyboard playsound3
     if [[ "$OSTYPE" == "darwin"* ]]; then
         pip install -q pyobjc-core pyobjc-framework-Cocoa
     fi
@@ -674,29 +707,67 @@ if [ -z $env_name ]; then
     fi
 fi
 
-# Source conda if available
-if command -v conda >/dev/null 2>&1; then
-    CONDA_BASE=$(conda info --base 2>/dev/null)
-    if [ -f "$CONDA_BASE/etc/profile.d/conda.sh" ]; then
-        source "$CONDA_BASE/etc/profile.d/conda.sh"
-    fi
+if ! command -v conda >/dev/null 2>&1; then
+    echo "Error: conda command not found. Please add conda to PATH." >&2
+    exit 1
 fi
 
-# Source bashrc/profile to get conda if not already available
-set +u
-if [ -f ~/.bashrc ]; then
-    grep -q "read -p" ~/.bashrc || source ~/.bashrc >/dev/null 2>&1
-fi
-if [ -f ~/.bash_profile ]; then
-    grep -q "read -p" ~/.bash_profile || source ~/.bash_profile >/dev/null 2>&1
-fi
-set -u
+source "$(conda info --base)/etc/profile.d/conda.sh"
 
 # Load modules only if 'module' command exists
 if command -v module >/dev/null 2>&1; then
-    module load gcc 2>/dev/null || true
-    module load openmpi 2>/dev/null || true
     module load cmake 2>/dev/null || true
+fi
+
+if [[ "$system_mpi" == "yes" ]]; then
+    echo "=== System MPI setup ==="
+
+    if command -v mpirun >/dev/null 2>&1; then
+        echo "Using existing MPI:"
+        echo "  $(command -v mpirun)"
+    else
+        echo "No mpirun found."
+
+        if ! command -v module >/dev/null 2>&1; then
+            echo "ERROR: system_mpi=yes but the module command is unavailable."
+            exit 1
+        fi
+
+        echo "Trying GCC + OpenMPI..."
+        module load gcc 2>/dev/null || true
+        module load openmpi 2>/dev/null || true
+
+        if ! command -v mpirun >/dev/null 2>&1; then
+            echo "OpenMPI failed. Trying MPICH..."
+            module load mpich 2>/dev/null || true
+        fi
+
+	if ! command -v mpicc >/dev/null 2>&1; then
+            echo "ERROR: system MPI requested, but mpicc is unavailable."
+            exit 1
+	fi
+
+        if ! command -v mpirun >/dev/null 2>&1; then
+            echo "ERROR: system_mpi=yes, but no usable system MPI was found."
+            exit 1
+        fi
+    fi
+
+    SYSTEM_CC="$(command -v gcc)"
+    SYSTEM_CXX="$(command -v g++)"
+    SYSTEM_FC="$(command -v gfortran)"
+    SYSTEM_MPICC="$(command -v mpicc)"
+    SYSTEM_MPIRUN="$(command -v mpirun)"
+
+    echo "System MPI selected:"
+    echo "  mpirun = $SYSTEM_MPIRUN"
+    echo "  mpicc  = $SYSTEM_MPICC"
+    echo "  gcc    = $SYSTEM_CC"
+    echo "  g++    = $SYSTEM_CXX"
+    echo "  gfortran = $SYSTEM_FC"
+    "$SYSTEM_MPIRUN" --version | head -n 1
+    echo "======================="
+
 fi
 
 [ "$create_env" == "yes" ] && install_conda_env "$env_name"

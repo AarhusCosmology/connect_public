@@ -6,7 +6,7 @@ trained_models/*
 /jobscripts/*
 /*.out
 *__pycache__/
-mcmc_plugin/connect.conf
+mcmc_plugin/config_files/connect.conf
 !/input/example_class.param
 !/input/example_camb.param
 !/jobscripts/example.js
