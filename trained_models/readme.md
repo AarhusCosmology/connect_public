@@ -1,6 +1,7 @@
 ```connect```	will store all trained models here. Each model is a directory and can be loaded	with the command
 ```
-tf.keras.models.load_model(/path/to/model, compile=False)
+import tf_keras
+tf_keras.models.load_model('/path/to/model', compile=False)
 ```
 
 All information	regarding the output of	the model is stored in ```/path/to/model/output_info.pkl```, which
@@ -18,7 +19,7 @@ is a binary pickle file containing a dictionary. The following entries are inclu
 other entries are used to revert the normalised output back to actual data, e.g. for ```output_info['normalize']['method'] = 'standardization'```
 (default) the entries ```'mean'``` and ```'variance'``` will reverse the normalisation as 
 ```
-model           = tf.keras.models.load_model(/path/to/model, compile=False)
+model           = tf_keras.models.load_model('/path/to/model', compile=False)
 data_normalized = model.predict(input_params)
 variance        = output_info['normalize']['variance']
 mean            = output_info['normalize']['mean']
