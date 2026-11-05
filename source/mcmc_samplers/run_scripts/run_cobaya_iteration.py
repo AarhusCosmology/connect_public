@@ -8,23 +8,31 @@ from cobaya.log import LoggedError
 from mpi4py import MPI
 import numpy as np
 
-from source.default_module import Parameters
-
 model = sys.argv[1]
 iteration = sys.argv[2]
 param_file = sys.argv[3]
 temperature = np.float64(sys.argv[4])
+CONNECT_PATH = sys.argv[5]
+
+sys.path.insert(1, CONNECT_PATH)
+from source.default_module import Parameters
 
 param = Parameters(param_file)
+# Remove CLASS if it was imported earlier
+if "classy" in sys.modules:
+    del sys.modules["classy"]
+for m in list(sys.modules):
+    if m.startswith("classy."):
+        del sys.modules[m]
 
 path = {}
-with open('mcmc_plugin/connect.conf','r') as f:
+
+
+with open(os.path.join(CONNECT_PATH, 'mcmc_plugin/config_files/connect.conf'), 'r') as f:
     for line in f:
         exec(line)
 
 path_clik = os.path.join(Path(path['clik']).parents[2], 'baseline/plc_3.0/')
-CONNECT_PATH = Path(path['cosmo']).parents[0]
-
 directory = os.path.join(CONNECT_PATH, f'data/{param.jobname}/number_{iteration}/')
 
 comm = MPI.COMM_WORLD
@@ -32,7 +40,6 @@ rank = comm.Get_rank()
 
 sys.stdout = open(directory + 'cobaya.log','a+')
 sys.stderr = sys.stdout
-
 
 
 lkls = {'Planck_highl_TTTEEE_lite': {'name': 'planck_2018_highl_plik.TTTEEE_lite',
@@ -46,10 +53,12 @@ lkls = {'Planck_highl_TTTEEE_lite': {'name': 'planck_2018_highl_plik.TTTEEE_lite
 
 info = {'likelihood': {},
         'params': {},
-        'sampler': {'mcmc': {'Rminus1_cl_stop':  0.1,
+        'sampler': {'mcmc': {'Rminus1_cl_stop':  param.mcmc_tol,
                              'Rminus1_stop':     param.mcmc_tol,
                              'max_tries':        1e+5,
-                             'covmat':          'auto',
+                             'max_samples':      max(2e+5, int(1.5*param.N_max_points)),
+                             'output_every':     1000,
+                             'covmat':           'auto',
                              'oversample_power': 0,
                              'proposal_scale':   2.1,
                              'temperature':      temperature}},
@@ -173,18 +182,34 @@ for par in param.output_derived:
         info['params'][par]['latex'] = par
 
 
+if rank == 0:
+    print("Rank 0: starting run()")
 
-updated_info, sampler = run(info)
 
-list_of_chains = comm.gather(sampler.products()["sample"].to_numpy(), root=0)
+updated_info, sampler = run(info, debug=False)
+
+print(f"Rank {rank}: sampling done")
+
+try:
+    samples = sampler.products()["sample"]
+    print(f"Rank {rank}: samples extracted, shape = {samples.to_numpy().shape}")
+except Exception as e:
+    print(f"Rank {rank}: error extracting samples: {e}")
+    samples = None
+
+print(f"Rank {rank}: entering gather()")
+list_of_chains = comm.gather(samples.to_numpy(), root=0)
+print(f"Rank {rank}: finished gather()")
 
 if rank == 0:
-    names_dict = {'sampled': sampler.products()["sample"].sampled_params,
-                  'derived': sampler.products()["sample"].derived_params,
-                  'all'    : sampler.products()["sample"].columns}
+    print("Rank 0: saving all chains")
+    names_dict = {'sampled': samples.sampled_params,
+                  'derived': samples.derived_params,
+                  'all'    : samples.columns}
     all_chains = {'chains' : list_of_chains,
                   'names'  : names_dict}
-
+    print(f"Rank 0: chains collected, number of chains = {len(all_chains['chains'])}")
     with open(directory + 'cobaya_all_chains.pkl','wb') as f:
         pkl.dump(all_chains,f)
+    print("Rank 0: chains saved successfully")
 

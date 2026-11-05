@@ -4,7 +4,6 @@ run_env="$(uname)"
 
 if [ -z $SLURM_NPROCS ]
 then
-    N_tasks=$(nproc)
     N_cpus_per_task="1"
     if [[ $run_env =~ "Darwin" ]]
     then

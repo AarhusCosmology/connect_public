@@ -62,21 +62,21 @@ cmake --version
 ```
 
 ### 1.1 Manual setup
-If one does not wish to use the ```setup.sh``` script, the setup can be performed manually. The code depends on [Class](https://github.com/lesgourg/class_public) and either [Monte Python](https://github.com/brinckmann/montepython_public) or [Cobaya](https://github.com/CobayaSampler/cobaya) (if iterative sampling is to be used - see [arXiv:2205.15726](https://arxiv.org/abs/2205.15726)), so one needs functioning installations of these. One also requires the Planck 2018 likelihood installed. The paths to ```connect_public/mcmc_plugin```, Monte Python, and the Planck likelihood should be set in ```mcmc_plugin/connect.conf``` in order for ```Monte Python``` to use a trained CONNECT model instead of Class. ```mcmc_plugin/connect.conf``` should look something like
+If one does not wish to use the ```setup.sh``` script, the setup can be performed manually. The code depends on [CLASS](https://github.com/lesgourg/class_public) or [CAMB](https://camb.readthedocs.io/en/latest/) and either [Monte Python](https://github.com/brinckmann/montepython_public), [Cobaya](https://github.com/CobayaSampler/cobaya), or [BEST](https://github.com/AndreasNygaard/best-inference/tree/main) (if iterative sampling is to be used - see [arXiv:2205.15726](https://arxiv.org/abs/2205.15726)), so one needs functioning installations of these. One also requires the Planck 2018 likelihood installed. The paths to ```connect_public/mcmc_plugin```, Monte Python, and the Planck likelihood should be set in ```mcmc_plugin/config_files/connect.conf``` in order for ```Monte Python``` to use a trained CONNECT model instead of CLASS. ```mcmc_plugin/config_files/connect.conf``` should look something like
 ```
 path['cosmo'] = '<path to connect_public>/mcmc_plugin'
 path['clik'] = '<path to planck2018>/code/plc_3.0/plc-3.01/'
 path['montepython'] = '<path to montepython_public>'
 ```
 
-The code is dependent on ```TensorFlow >= v2.0``` and ```mpi4py```, so these should be installed (pip or conda) within the environment to use with the code. If using an environment when running CONNECT, remember to build Class within this environment. Additional dependencies include
+The code is dependent on ```TensorFlow >= v2.0``` and ```mpi4py```, so these should be installed (pip or conda) within the environment to use with the code. If using an environment when running CONNECT, remember to build CLASS (or CAMB) within this environment. Additional dependencies include
 ```
 cython
 matplotlib
 scipy
 numpy
 ```
-along with all dependencies for Monte Python, Cobaya, Class, and the Planck 2018 likelihood.
+along with all dependencies for Monte Python, Cobaya, CLASS, and the Planck 2018 likelihood.
 
 
 ## 2. Usage
@@ -163,7 +163,7 @@ overwrite_model = False                # whether or not to overwrite names of tr
 
 ### 2.2 Using a trained neural network for MCMC
 
-All trained models are stored in ```trained_models/```, and these can be loaded using native ```TensorFlow``` commands or the plugin module located in ```mcmc_plugin/python/build/lib.connect_disguised_as_classy/``` which functions like the ```classy``` wrapper for Class. To use the plugin instead of Class, one needs to add the path to ```sys.path``` in order for this module to be loaded when importing ```classy```. One needs to specify the name of the model with ```cosmo.set()``` in the same way as any other Class parameter is set. This can be done in the following way:
+All trained models are stored in ```trained_models/```, and these can be loaded using native ```TensorFlow``` commands or the plugin module located in ```mcmc_plugin/python/build/lib.connect_disguised_as_classy/``` which functions like the ```classy``` wrapper for CLASS. To use the plugin instead of CLASS, one needs to add the path to ```sys.path``` in order for this module to be loaded when importing ```classy```. One needs to specify the name of the model with ```cosmo.set()``` in the same way as any other CLASS parameter is set. This can be done in the following way:
 ```
 import sys
 path_to_connect_classy = '<path to connect_public>/mcmc_plugin/python/build/lib.connect_disguised_as_classy'
@@ -180,7 +180,7 @@ cls = cosmo.lensed_cl()
 
 This wrapper is used by both Monte Python and Cobaya when using the neural network for MCMC runs. 
 #### 2.2.1 Monte Python
-When running an MCMC with Monte Python, one has to set the configuration file to ```<path to connect_public>/mcmc_plugin/connect.conf``` using the Monte Python flag ```--conf```. The important thing here is that the configuration file points to the CONNECT wrapper instead of Class for the cosmological module. It should look something like this
+When running an MCMC with Monte Python, one has to set the configuration file to ```<path to connect_public>/mcmc_plugin/connect.conf``` using the Monte Python flag ```--conf```. The important thing here is that the configuration file points to the CONNECT wrapper instead of CLASS for the cosmological module. It should look something like this
 ```
 path['cosmo'] = '<path to connect_public>/mcmc_plugin'
 path['clik'] = '<path to planck2018>/code/plc_3.0/plc-3.01/'
@@ -223,9 +223,10 @@ If one is loading a model without the wrapper, it is important to know about the
 import os
 import numpy as np
 import tensorflow as tf
+import tf_keras
 
 model_name = <path to connect model>
-model = tf.keras.models.load_model(model_name, compile=False)
+model = tf_keras.models.load_model(model_name, compile=False)
 info_dict = model.info_dict
 
 v = tf.constant([[..., ...]])    # input for neural network with dimension (N, M)
@@ -234,7 +235,10 @@ v = tf.constant([[..., ...]])    # input for neural network with dimension (N, M
 
 emulated_output = model(v)
 ```
-The indices for the different types of output is stored in the dictionary ```info_dict['interval']```. For each kind of output (each type of Cl spectrum, matter power spectrum, derived parameter, etc.) an index or a list of two indices (start and end) is an item with the output name as the key.
+
+**Note:** _Newer versions of TensorFlow has switched to a Keras 3 backend which doesn't support the model format of CONNECT. The ```tf_keras``` package should should then be used instead of ```tf.keras``` when loading models._
+
+The indices for the different types of output are stored in the dictionary ```info_dict['interval']```. For each kind of output (each type of Cl spectrum, matter power spectrum, derived parameter, etc.) an index or a list of two indices (start and end) is an item with the output name as the key.
 
 The ```info_dict``` in the above code snippet is a ```DictWrapper``` object that functions like a dictionary. All values are TensorFlow variables and all strings (except keys) are byte strings. The byte strings can be converted using ```<byte string>.decode('utf-8')```. If one wants a pure python dictionary with regular types (```list```, ```float```, ```str```), then the same info dictionary can be loaded from a raw string version:
 ```
@@ -308,7 +312,7 @@ While the iterative process is running each individual step can be monitored wit
 
 All errors can be seen in the SLURM output file defined in the job script
 
-When calculating Class models, the computed amount can be monitored by the command
+When calculating CLASS models, the computed amount can be monitored by the command
 ```
 cat data/<jobname>/number_<iteration>/model_params_data/*.txt | wc -l
 ```

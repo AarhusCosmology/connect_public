@@ -10,8 +10,8 @@ class CosmoConnect(classy):
 
     def initialize(self):
         """Importing CONNECT from the correct path."""
-        classy_path = Path(self.path).parents[0]
-        sys.path.insert(1, self.get_import_path(classy_path))
+        classy_path = os.path.join(Path(self.path).parents[0], 'cosmo_wrapper')
+        sys.path.insert(0, self.get_import_path(classy_path))
         import classy as connect
         self.classy_module = connect
         self.classy = self.classy_module.Class()

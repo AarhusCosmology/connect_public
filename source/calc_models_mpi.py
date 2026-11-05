@@ -9,15 +9,14 @@ os.environ['UCX_LOG_LEVEL'] = 'error'
 param_file   = sys.argv[1]
 CONNECT_PATH = sys.argv[2]
 sampling     = sys.argv[3]
+recompute    = eval(sys.argv[4])
 sys.path.insert(0,CONNECT_PATH)
 
 import numpy as np
-import classy
-from scipy.interpolate import CubicSpline
 from mpi4py import MPI
 
 from source.default_module import Parameters
-from source.tools import get_computed_cls, get_z_idx, get_covmat
+from source import cosmic_solvers
 
 param_file = os.path.join(CONNECT_PATH, param_file)
 param        = Parameters(param_file)
@@ -39,6 +38,11 @@ N_slaves = comm.Get_size()-1
 
 get_slave = itertools.cycle(range(1,N_slaves+1))
 
+
+cosmic_solver = getattr(cosmic_solvers, cosmic_solvers.name_dict[param.cosmic_solver])(param)
+
+
+
 def excepthook(etype, value, tb):
     if tb is not None and value not in [None, '']:
         print('Traceback (most recent call last):', file=sys.stderr)
@@ -49,27 +53,20 @@ sys.excepthook = excepthook
 
 
 
-if len(param.output_Cl) > 0:
-    cosmo = classy.Class()
-    input_params = {'output':'tCl, lCl, pCl', 'lensing':'yes'}
-    if 'l_max_scalars' in param.extra_input:
-        input_params.update({'l_max_scalars':param.extra_input['l_max_scalars']})
-    cosmo.set(input_params)
-    cosmo.compute()
-    cls = get_computed_cls(cosmo)
-    global_ell = cls['ell']
-    
-
 ## rank == 0 (master)
 if rank == 0:
-    if sampling == 'iterative':
+    if recompute:
+        try:
+            data = np.loadtxt(os.path.join(directory, 'model_params.txt'), skiprows=1)
+        except FileNotFoundError:
+            raise FileNotFoundError(f'No model_params.txt file found in {directory} to recompute from.')
+    
+    elif sampling == 'iterative':
         exec(f'from source.mcmc_samplers.{param.mcmc_sampler} import {param.mcmc_sampler}')
         _locals = {}
         exec(f'mcmc = {param.mcmc_sampler}(param, CONNECT_PATH)', locals(), _locals)
         mcmc = _locals['mcmc']
-
         data = mcmc.import_points_from_chains(iteration)
-
         
     elif sampling == 'lhc':
         from source.ini_samplers import LatinHypercubeSampler
@@ -116,26 +113,34 @@ if rank == 0:
 
 ## rank > 0 (slaves)
 else:
-    # Directories for input (model parameters) and output (Cl data) data
+    # Directories for input (model parameters) and output data
     in_dir           = os.path.join(directory, f'model_params_data/model_params_{rank}.txt')
-    out_dirs_Cl      = []
-    out_dirs_Pk      = []
-    out_dirs_bg      = []
-    out_dirs_th      = []
-    out_dirs_ex      = []
-    for Cl in param.output_Cl:
-        out_dirs_Cl.append(os.path.join(directory, f'Cl_{Cl}_data/Cl_{Cl}_data_{rank}.txt'))
-    for Pk in param.output_Pk:
-        out_dirs_Pk.append(os.path.join(directory, f'Pk_{Pk}_data/Pk_{Pk}_data_{rank}.txt'))
-    for bg in param.output_bg:
-        bg = bg.replace('/','\\')
-        out_dirs_bg.append(os.path.join(directory, f'bg_{bg}_data/{bg}_data_{rank}.txt'))
-    for th in param.output_th:
-        out_dirs_th.append(os.path.join(directory, f'th_{th}_data/{th}_data_{rank}.txt'))
-    if len(param.output_derived) > 0:
-        out_dir_derived = os.path.join(directory, f'derived_data/derived_data_{rank}.txt')
-    for ex in param.extra_output:
-        out_dirs_ex.append(os.path.join(directory, f'extra_{ex}_data/{ex}_data_{rank}.txt'))
+    output_structure = cosmic_solver.output_structures()
+    out_dirs_scalar  = []
+    out_dirs_1D      = []
+    out_dirs_2D      = []
+
+    for out in output_structure['Scalar']['list']:
+        out_name = out.replace('output_','').replace('_output','')
+        if len(getattr(param, out)) > 0:
+            out_dirs_scalar.append({'path': os.path.join(directory, f'{out_name}_data/{out_name}_data_{rank}.txt'),
+                                    'output_name': out})
+    for out in output_structure['1D']['list']:
+        out_name = out.replace('output_','').replace('_output','')
+        for arr in getattr(param, out):
+            array = arr.replace('/','\\')
+            out_dirs_1D.append({'path': os.path.join(directory, f'{out_name}_{array}_data/{out_name}_{array}_data_{rank}.txt'),
+                                'output_name': out,
+                                'array': arr})
+    for out in output_structure['2D']['list']:
+        out_name = out.replace('output_','').replace('_output','')
+        for arr in getattr(param, out):
+            if type(arr) == tuple:
+                arr = '-'.join(map(str,arr))
+            array = arr.replace('/','\\')
+            out_dirs_2D.append({'path': os.path.join(directory, f'{out_name}_{array}_data/{out_name}_{array}_data_{rank}.txt'),
+                                'output_name': out,
+                                'array': arr})
 
     param_header = '# '
     for par_name in param_names:
@@ -144,25 +149,32 @@ else:
         else:
             param_header += par_name+'\t'
 
-    derived_header = '# '
-    for der_name in param.output_derived:
-        if der_name == param.output_derived[-1]:
-            derived_header += der_name+'\n'
-        else:
-            derived_header += der_name+'\t'
+    scalar_headers = []
+    for out in output_structure['Scalar']['list']:
+        scalar_header = '# '
+        for name in getattr(param, out):
+            if name == getattr(param, out)[-1]:
+                scalar_header += name+'\n'
+            else:
+                scalar_header += name+'\t'
+        scalar_headers.append(scalar_header)
 
     # Initialise data files
     with open(in_dir, 'w') as f:
         f.write(param_header)
 
-    for out_dir in out_dirs_Cl + out_dirs_Pk + out_dirs_bg + out_dirs_th:
-        with open(out_dir, 'w') as f:
+    for i, out_dir in enumerate(out_dirs_scalar):
+        with open(out_dir['path'], 'w') as f:
+            f.write(scalar_headers[i])
+
+    for i, out_dir in enumerate(out_dirs_1D):
+        with open(out_dir['path'], 'w') as f:
             f.write('')
-    try:
-        with open(out_dir_derived, 'w') as f:
-            f.write(derived_header)
-    except:
-        pass
+
+    for i, out_dir in enumerate(out_dirs_2D):
+        with open(out_dir['path'], 'w') as f:
+            f.write('')
+
 
     # Initialise timeout signal
     def timeout_handler(num, stack):
@@ -177,88 +189,28 @@ else:
         if type(model).__name__ == 'str':
             break
 
-        # Set required CLASS parameters
-        params = {}
-        if len(param.output_Cl) > 0:
-            params['output']            = 'tCl,lCl'
-            params['lensing']           = 'yes'
-            if any("b" in s or "e" in s for s in param.output_Cl):
-                params['output']       += ',pCl'
-
-        params.update(param.extra_input)
-        for i, par_name in enumerate(param_names):
-            params[par_name] = model[i]
-
-        if 'P_k_max_h/Mpc' in params:
-            val = params.pop('P_k_max_h/Mpc')
-            params['P_k_max_1/Mpc'] = val*0.67556
-        if len(param.output_Pk) > 0:
-            if 'output' in params:
-                params['output']       += ',mPk'
-            else:
-                params['output']        = 'mPk'
-            params['P_k_max_1/Mpc']     = 2.5*max(param.k_grid)
-            params['z_max_pk']          = max(param.z_Pk_list)
-
-        if 'sigma8' in param.output_derived:
-            if not 'mPk' in params['output']:
-                if len(params['output']) > 0:
-                    params['output']   += ',mPk'
-                else:
-                    params['output']    = 'mPk'
-            if not 'P_k_max_1/Mpc' in params:
-                params['P_k_max_1/Mpc'] = 1.
-
-        signal.alarm(param.max_time_for_theory) # CLASS computations must not take longer than this amount of seconds (default is 200)
         try:
-            cosmo = classy.Class()
-            cosmo.set(params)
-            cosmo.compute()
-            if len(param.output_bg) > 0:
-                bg = cosmo.get_background()
-                if len(param.z_bg_list) > 0:
-                    z_bg = param.z_bg_list
-                else:
-                    bg_idx = get_z_idx(bg['z'])
-                    z_bg = bg['z'][bg_idx]
-            if len(param.output_th) > 0:
-                th = cosmo.get_thermodynamics()
-                if len(param.z_th_list) > 0:
-                    z_th = param.z_th_list
-                else:
-                    th_idx = get_z_idx(th['z'])
-                    z_th = th['z'][th_idx]
-            if len(param.output_derived) > 0:
-                der = cosmo.get_current_derived_parameters(param.output_derived)
-            if len(param.output_Cl) > 0:
-                cls = get_computed_cls(cosmo, ell_array=global_ell)
-                if any(np.isnan(cls[key]).any() for key in cls):
-                    raise classy.CosmoComputationError(
-                        'Class computation completed with NaN values in CMB power spectra.')
-                ell = cls['ell'][2:]
-            if len(param.output_Pk) > 0:
-                pks = {}
-                for pk in param.output_Pk:
-                    pks[pk] = {}
-                    for z in param.z_Pk_list:
-                        pks[pk][z] = []
-                        for k in param.k_grid:
-                            pks[pk][z].append(eval(f'cosmo.{pk}(k,z)'))
+            signal.alarm(param.max_time_for_theory) # CLASS computations must not take longer than this amount of seconds (default is 200)
+
+            cosmic_solver.set_parameters(model)
+            cosmic_solver.compute_outputs()
+            outputs = cosmic_solver.get_outputs()
+
             success = True
-        except classy.CosmoComputationError as e:
-            print('The following model failed in CLASS:', flush=True)
-            print(params, flush=True)
+        except cosmic_solver.computation_exception as e:
+            print(f'The following model failed in {param.cosmic_solver.upper()}:', flush=True)
+            print(cosmic_solver.params, flush=True)
             success = False
             print(e.message)
-        except classy.CosmoSevereError as e:
-            print('The following model failed in CLASS:', flush=True)
-            print(params, flush=True)
+        except cosmic_solver.severe_exception as e:
+            print(f'The following model failed in {param.cosmic_solver.upper()}:', flush=True)
+            print(cosmic_solver.params, flush=True)
             success = False
             print(e.message)
         except Exception as e:
             if str(e) == 'timeout':
                 print('The following model took too long to complete:', flush=True)
-                print(params, flush=True)
+                print(cosmic_solver.params, flush=True)
                 success = False
             else:
                 raise e
@@ -267,93 +219,76 @@ else:
                 
         if success:
             # Write data to data files
-            for out_dir, output in zip(out_dirs_Cl, param.output_Cl):
-                par_out = cls[output][2:]*ell*(ell+1)/(2*np.pi)
-                with open(out_dir, 'a') as f:
-                    for i, l in enumerate(ell):
-                        if i != len(ell)-1:
-                            f.write(str(l)+'\t')
-                        else:
-                            f.write(str(l)+'\n')
+            for out_dir in out_dirs_scalar:
+                path = out_dir['path']
+                output_name = out_dir['output_name']
+                out_name = output_name.replace('output_','').replace('_output','')
+                par_out = []
+                for output in getattr(param, output_name):
+                    par_out.append(outputs[out_name][output])
+                with open(path, 'a') as f:
                     for i, p in enumerate(par_out):
                         if i != len(par_out)-1:
                             f.write(str(p)+'\t')
                         else:
                             f.write(str(p)+'\n')
 
-            for out_dir, output in zip(out_dirs_Pk, param.output_Pk):
-                with open(out_dir, 'a') as f:
-                    for i, k in enumerate(param.k_grid):
-                        if i != len(param.k_grid)-1:
-                            f.write(str(k)+'\t')
+
+            for out_dir in out_dirs_1D:
+                path = out_dir['path']
+                output_name = out_dir['output_name']
+                out_name = output_name.replace('output_','').replace('_output','')
+                array = out_dir['array']
+                par_out = outputs[out_name][array]
+                idx = output_structure['1D']['list'].index(output_name)
+                x_arr_name = output_structure['1D']['x_arr'][idx]
+                if x_arr_name is not None:
+                    x_array = getattr(param, x_arr_name)
+                else:
+                    x_array = None
+                with open(path, 'a') as f:
+                    if x_array is not None:
+                        for i, l in enumerate(x_array):
+                            if i != len(x_array)-1:
+                                f.write(str(l)+'\t')
+                            else:
+                                f.write(str(l)+'\n')
+                    for i, p in enumerate(par_out):
+                        if i != len(par_out)-1:
+                            f.write(str(p)+'\t')
                         else:
-                            f.write(str(k)+'\n')
-                    for z in param.z_Pk_list:
-                        par_out = pks[output][z]
+                            f.write(str(p)+'\n')
+
+
+            for out_dir in out_dirs_2D:
+                path = out_dir['path']
+                output_name = out_dir['output_name']
+                out_name = output_name.replace('output_','').replace('_output','')
+                array = out_dir['array']
+                idx = output_structure['2D']['list'].index(output_name)
+                x_arr_name = output_structure['2D']['x_arr'][idx]
+                y_arr_name = output_structure['2D']['y_arr'][idx]
+                if x_arr_name is not None:
+                    x_array = getattr(param, x_arr_name)
+                else:
+                    x_array = None
+                y_array = getattr(param, y_arr_name)
+                with open(path, 'a') as f:
+                    if x_array is not None:
+                        for i, k in enumerate(x_array):
+                            if i != len(x_array)-1:
+                                f.write(str(k)+'\t')
+                            else:
+                                f.write(str(k)+'\n')
+                    for y in y_array:
+                        par_out = outputs[out_name][array][y]
                         for i, p in enumerate(par_out):
                             if i != len(par_out)-1:
                                 f.write(str(p)+'\t')
                             else:
                                 f.write(str(p)+'\n')
 
-            if len(param.output_derived) > 0:
-                par_out = []
-                for output in param.output_derived:
-                    par_out.append(der[output])
-                with open(out_dir_derived, 'a') as f:
-                    for i, p in enumerate(par_out):
-                        if i != len(par_out)-1:
-                            f.write(str(p)+'\t')
-                        else:
-                            f.write(str(p)+'\n')
 
-            for out_dir, output in zip(out_dirs_bg, param.output_bg):
-                if len(param.z_bg_list) > 0:
-                    par_out = CubicSpline(np.flip(bg['z']), np.flip(bg[output]), bc_type='natural')(param.z_bg_list)
-                else:
-                    par_out = bg[output][bg_idx]
-                with open(out_dir, 'a') as f:
-                    for i, z in enumerate(z_bg):
-                        if i != len(z_bg)-1:
-                            f.write(str(z)+'\t')
-                        else:
-                            f.write(str(z)+'\n')
-                    for i, p in enumerate(par_out):
-                        if i != len(par_out)-1:
-                            f.write(str(p)+'\t')
-                        else:
-                            f.write(str(p)+'\n')
-
-            for out_dir, output in zip(out_dirs_th, param.output_th):
-                if len(param.z_th_list) > 0:
-                    par_out = CubicSpline(th['z'], th[output], bc_type='natural')(param.z_th_list)
-                else:
-                    par_out = th[output][th_idx]
-                with open(out_dir, 'a') as f:
-                    for i, z in enumerate(z_th):
-                        if i != len(z_th)-1:
-                            f.write(str(z)+'\t')
-                        else:
-                            f.write(str(z)+'\n')
-                    for i, p in enumerate(par_out):
-                        if i != len(par_out)-1:
-                            f.write(str(p)+'\t')
-                        else:
-                            f.write(str(p)+'\n')
-        
-            for out_dir, output in zip(out_dirs_ex, param.extra_output):
-                par_out = eval(param.extra_output[output])
-                try:
-                    len(par_out)
-                except:
-                    par_out = [par_out]
-                with open(out_dir, 'a') as f:
-                     for i, p in enumerate(par_out):
-                        if i != len(par_out)-1:
-                            f.write(str(p)+'\t')
-                        else:
-                            f.write(str(p)+'\n')
-        
             with open(in_dir, 'a') as f:
                 for i, m in enumerate(model):
                     if i != len(model)-1:
@@ -361,7 +296,6 @@ else:
                     else:
                         f.write(str(m)+'\n')
 
-        cosmo.struct_cleanup()
 
 MPI.Finalize()
 sys.exit(0)

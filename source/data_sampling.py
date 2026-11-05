@@ -22,6 +22,7 @@ class Sampling():
             self.data_path = f'data/{self.param.jobname}/N-{self.param.N}'
         elif self.param.sampling == 'iterative':
             self.data_path = f'data/{self.param.jobname}'
+        self.previous_model = None
 
     def create_hypersphere_data(self):
         self.copy_param_file()
@@ -56,6 +57,13 @@ class Sampling():
                 i = max([int(f.split('number_')[-1]) for f in os.listdir(self.data_path) if f.startswith('number')])
             except:
                 raise NotImplementedError('You do not have any computed iterations to resume from. Please run again without resume_iterations=True')
+            # check if param file exists in data folder
+            param_exists = os.path.isfile(os.path.join(self.CONNECT_PATH, self.data_path, 'log_connect.param'))
+            if param_exists:
+                self.param.param_file = os.path.join(self.CONNECT_PATH, self.data_path, 'log_connect.param')
+            else:
+                self.copy_param_file()
+                
             data_is_computed = os.path.isfile(os.path.join(self.data_path, f'number_{i}', 'training.log'))
             if data_is_computed:
                 print('Resuming iterative sampling', flush=True)
@@ -92,7 +100,7 @@ class Sampling():
                 os.system(f"rm -rf {self.CONNECT_PATH}/{self.data_path}/number_*")
                 mcmc.Gelman_Rubin_log_ini()
                 print('No initial model given', flush=True)
-                print(f'Calculating {self.param.N} initial CLASS models', flush=True)
+                print(f'Calculating {self.param.N} initial {self.param.cosmic_solver.upper()} models', flush=True)
                 self.call_calc_models(sampling=self.param.initial_sampling)
                 print('Training neural network', flush=True)
                 model = self.train_neural_network(sampling=self.param.initial_sampling,
@@ -102,6 +110,7 @@ class Sampling():
                 model = self.param.initial_model
             print(f'Initial model is {model}', flush=True)
 
+        self.previous_model = model
         kill_iteration = False
         while True:
             if i > i_converged and annealing:
@@ -111,12 +120,10 @@ class Sampling():
             print(f'Running MCMC sampling no. {i}...', flush=True)
             mcmc.temperature = temperature
             mcmc.run_mcmc_sampling(model, i)
-            print(f'MCMC sampling stopped since R-1 less than {self.param.mcmc_tol} has been reached.', flush=True)
-
             N_acc = mcmc.get_number_of_accepted_steps(i)
             print(f'Number of accepted steps: {N_acc}', flush=True)
             if i == 1 and not self.param.keep_first_iteration:
-                N_keep = 5000
+                N_keep = self.param.N_first_iteration
             else:
                 N_keep = self.param.N_max_points
             N_keep = mcmc.filter_chains(N_keep,i)
@@ -149,7 +156,7 @@ class Sampling():
                 kill_iteration = False
 
             
-            print(f'Calculating {N_accepted} CLASS models', flush=True)
+            print(f'Calculating {N_accepted} {self.param.cosmic_solver.upper()} models', flush=True)
             create_output_folders(self.param, iter_num=i, reset=False)
             self.call_calc_models(sampling='iterative')
             join_data_files(self.param)
@@ -164,7 +171,8 @@ class Sampling():
             model = self.train_neural_network(sampling='iterative',
                                               output_file=os.path.join(self.data_path,
                                                                        f'number_{i}/training.log'))
-            
+
+            self.previous_model = model
             if kill_iteration and N_accepted < 0.1*N_in_data_set and not annealing:
                 print(f"Final model is {model}", flush=True)
                 break
@@ -184,12 +192,12 @@ class Sampling():
                     jobname_specified = True
             if not jobname_specified:
                 f.write(f"\njobname = '{self.param.jobname}'")
-        self.param.param_file = self.CONNECT_PATH+'/'+self.data_path+'/log_connect.param'
+        self.param.param_file = os.path.join(self.CONNECT_PATH, self.data_path, 'log_connect.param')
 
-    def call_calc_models(self, sampling='lhc'):
-        os.environ["OMP_NUM_THREADS"] = str({self.N_cpus_per_task})
+    def call_calc_models(self, sampling='lhc', recompute=False):
+        os.environ["OMP_NUM_THREADS"] = str(self.N_cpus_per_task)
         os.environ["PMIX_MCA_gds"] = "hash"
-        sp.check_call(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling}".split())
+        sp.check_call(f"mpirun -np {self.N_tasks - 1} python {self.CONNECT_PATH}/source/calc_models_mpi.py {self.param.param_file} {self.CONNECT_PATH} {sampling} {recompute}".split())
         os.environ["OMP_NUM_THREADS"] = "1"
 
     def train_neural_network(self, sampling='lhc', output_file=None):
@@ -205,7 +213,7 @@ class Sampling():
             CSDF = CreateSingleDataFile(self.param, self.CONNECT_PATH)
             CSDF.join()
         tr = Training(self.param, self.CONNECT_PATH)
-        tr.train_model(output_file = output_file)
+        tr.train_model(output_file=output_file, previous_model=self.previous_model)
         tr.save_model()
         tr.save_history()
         tr.save_test_data()
@@ -222,3 +230,9 @@ class Sampling():
                 if M-1 > 0:
                     model_name += f'_{M-1}'
         return model_name
+
+    def recompute_model_data(self):
+        i = max([int(f.split('number_')[-1]) for f in os.listdir(self.data_path) if f.startswith('number')])
+        create_output_folders(self.param, iter_num=i, reset=False)
+        self.call_calc_models(sampling=self.param.sampling, recompute=True)
+        join_data_files(self.param)

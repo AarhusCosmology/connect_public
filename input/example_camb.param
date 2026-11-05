@@ -1,0 +1,140 @@
+# Parameter file for the example model
+
+# Specify the parameters for the model, their minimum value and their maximum value
+# (as you would in CLASS) 
+#
+#           | name              | min-value     | max-value      |
+#           |-------------------|---------------|----------------|
+parameters={'ombh2'          :  [ 0.02,           0.03           ],
+            'omch2'          :  [ 0.07,           0.25           ],
+            'H0'             :  [ 60,             80             ],
+            'As'             :  [ 1.8e-9,         3.3e-9         ],
+            'ns'             :  [ 0.9,            1.1            ],
+            'tau'            :  [ 0.03,           0.12           ]}
+
+
+# Specify additional parameters
+
+
+
+
+#########--------- Training parameters ---------#########
+
+train_ratio          = 0.95		  # Amount of data used for training
+                                          # (rest is used for testing)
+
+val_ratio            = 0.05	      	  # Amount of training data used for validation
+
+epochs               = 500	      	  # Number of cycles/epochs during training
+
+batchsize            = 32	          # Batchsize of data when training
+
+activation_function  = 'alsing'	          # Activation function - as defined in TensorFlow
+                                          # or source/custom_functions.py
+
+loss_function        = 'cosmic_variance'  # Loss function - as defined in TensorFlow
+                                          # or source/custom_functions.py
+
+N_hidden_layers      = 6                  # Number of hidden layers in fully-connected
+                                          # architecture
+
+N_nodes	             = 512	          # Number of nodes in each hidden layer
+
+normalisation_method = 'standardisation'  # Normalisation method for output data
+
+warm_start = True
+
+
+
+#########--------- Sampling parameters ---------#########
+
+N = 1e+3       # Amount of points in lhc. When using the iterative 
+               # method this number refers to only the initial lhc
+
+output_Cl      = ['tt', 'te', 'ee', 'pp']         # Cl spectra in output
+
+output_Pk      = [('delta_cdm','delta_baryon'),('delta_cdm','delta_baryon','linear'),'delta_tot','delta_tot_linear']
+# Matter power spectra in output
+z_Pk_list      = [0.0, 1.5, 13.65]	    # z-values for matter power spectra
+
+output_bg      = ['angular_diameter_distance',         # Background functions in output
+	          'conformal_time',
+	          'h_of_z'
+		  ]
+z_bg_list      = [0.35, 0.57, 0.106]        # Optional list of z-values for background
+
+output_th      = ['sound_horizon',                    # Thermodynamics functions in output
+		  ]
+z_th_list      = [0.35, 0.57, 0.106]        # Optional list of z-values	for thermodynamics
+
+output_derived = ['omega_de',                 # Derived parameters in output
+		  'sigma8',
+		  'thetastar'
+		  ]
+
+extra_output   = {'rs_drag': "results.get_derived_params()['rdrag']"}  # Additional output {name: string of code}
+
+
+extra_input    = {'pivot_scalar': 0.05,	    # Extra input to CLASS
+		  'num_nu_massless':    2.0328,
+		  'num_nu_massive':  1,
+		  'mnu':  0.06,
+		  }
+
+cosmic_solver = 'camb'
+
+bestfit_guesses = {'ombh2':       0.0223,
+                   'omch2':       0.119,
+		   'H0':          67.7,
+		   'As':          2.1e-9,
+		   'ns':          0.965,
+		   'tau':         0.054,
+}  # Guesses for bestfit for parameters
+
+sigma_guesses   = {'ombh2':       0.001,
+                   'omch2':       0.005,
+                   'H0':          0.3,
+                   'As':          5e-11,
+                   'ns':          0.002,
+                   'tau':         0.0005,
+}  # Guesses for sigma for parameters 
+
+prior_ranges     = parameters            # Prior ranges for mcmc sampling. A dictionary
+                                         # in the same form as parameters
+
+log_priors      = ['As']                    # List of parameter names to be sampled
+                                         # with a logarithmic prior
+
+
+sampling      = 'iterative'    # Sampling of training data can be done with the
+                               # methods 'lhc' and 'iterative'. Some parameters
+                               # are only usable wth the iterative method
+
+initial_sampling = 'hypersphere'
+#hypersphere_covmat = '/Users/andreas/Documents/Codes/connect/resources/montepython_public/covmat/base2018TTTEEE_lite.covmat'
+temperature = 5.0
+
+mcmc_sampler  = 'montepython'  # mcmc sampler to use in iterations (cobaya or montepython)
+
+initial_model = None           # Name of initial model to start the iterations
+
+mcmc_tol      = 0.3           # Tolerance of R-1 values for individual mcmc runs
+
+iter_tol      = 0.5            # Tolerance of R-1 values for subsequent iterations
+
+N_max_points  = 1e+3           # The maximum number of points to take from each iteration
+
+keep_first_iteration = True   # Whether to keep data from first iteration (usually bad)
+
+sampling_likelihoods = ['Planck_highl_TTTEEE_lite', 'Planck_lowl_TT', 'Planck_lowl_EE']
+
+
+
+
+#########---------- Saving parameters ----------#########
+
+jobname = 'lcdm_example_camb_montepython'     # Name job and output folder
+
+save_name = 'example_camb_montepython'        # Name of trained models
+
+overwrite_model = False      # Whether or not to overwrite model names or to append a suffix

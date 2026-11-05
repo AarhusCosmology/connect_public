@@ -1,69 +1,12 @@
 import os
+import re
 import subprocess as sp
 
 import numpy as np
 
+from source import cosmic_solvers
+
 CONNECT_PATH  = os.path.split(os.path.realpath(os.path.dirname(__file__)))[0]
-
-def get_computed_cls(cosmo,       # A computed CLASS model
-                     ell_array=[]
-                     ):
-
-    cls = cosmo.lensed_cl()
-
-    if len(ell_array) == 0:
-        # get parameters from CLASS model
-        BA                 = cosmo.get_background()
-        conformal_age_     = BA['conf. time [Mpc]'][-1]
-        der_pars           = cosmo.get_current_derived_parameters(['ra_rec','tau_rec'])
-        l_max              = len(cls['ell']) - 1
-        angular_rescaling_ = der_pars['ra_rec']/(conformal_age_ - der_pars['tau_rec'])
-        l_linstep          = 40
-        l_logstep          = 1.12
-    
-        # compute necessary ells like CLASS (see transfer module in CLASS)
-        increment = max(int(2*(np.power(l_logstep,angular_rescaling_) - 1)), 1)
-        l=[0,1,2]
-    
-        lin_increment = int(l_linstep*angular_rescaling_)
-        while l[-1] + increment < l_max:
-            if increment < lin_increment:
-                l.append(l[-1] + increment)
-                increment = max(int(l[-1]*(np.power(l_logstep,angular_rescaling_) - 1)), 1)
-            else:
-                l.append(l[-1] + lin_increment)
-        ell = np.array(l)
-    else:
-        ell = np.array(ell_array)
-
-    # create reduced dict of cls
-    new_cls = {'ell':ell}
-    for key, arr in cls.items():
-        if key != 'ell':
-            new_cls[key] = arr[ell]
-
-    return new_cls
-
-
-def get_z_idx(z):
-    z=z.copy()
-    if z[-1] > z[0]:
-        grid = np.logspace(np.log10(z[1]), np.log10(z[-1]), 99)
-    else:
-        grid = np.logspace(np.log10(z[0]), np.log10(z[-2]), 99)
-    z_idx = []
-    for zg in grid:
-        i = np.abs(z-zg).argmin()
-        z[i] = np.inf
-        z_idx.append(i)
-    j = len(z) - 1
-    while len(z_idx) < 100:
-        if j in z_idx:
-            j -= 1
-        else:
-            z_idx.append(j)
-    return np.array(sorted(z_idx))
-
 
 
 def create_output_folders(param,            # Parameter object
@@ -71,6 +14,8 @@ def create_output_folders(param,            # Parameter object
                           reset=True,       # Resets output folders
                           resume=False      # Resume from iteration
                       ):
+    cosmic_solver = getattr(cosmic_solvers, cosmic_solvers.name_dict[param.cosmic_solver])(param)
+    output_structure = cosmic_solver.output_structures()
     if not resume:
         path = os.path.join(CONNECT_PATH, f'data/{param.jobname}')
         if not os.path.isdir(path):
@@ -82,19 +27,23 @@ def create_output_folders(param,            # Parameter object
                         os.system(f"rm -rf {os.path.join(path, name)}")
                 os.mkdir(os.path.join(path,f'N-{param.N}'))
                 os.mkdir(os.path.join(path, f'N-{param.N}/model_params_data'))
-                for output in param.output_Cl:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/Cl_{output}_data'))
-                for output in param.output_Pk:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/Pk_{output}_data'))
-                for output in param.output_bg:
-                    output = output.replace('/','\\')
-                    os.mkdir(os.path.join(path, f'N-{param.N}/bg_{output}_data'))
-                for output in param.output_th:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/th_{output}_data'))
-                if len(param.output_derived) > 0:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/derived_data'))
-                for output in param.extra_output:
-                    os.mkdir(os.path.join(path, f'N-{param.N}/extra_{output}_data'))
+                for output in output_structure['1D']['list']:
+                    output_name = output.replace('output_','').replace('_output','')
+                    for array in getattr(param, output):
+                        arr = array.replace('/','\\')
+                        os.mkdir(os.path.join(path, f'N-{param.N}/{output_name}_{arr}_data'))
+                for output in output_structure['2D']['list']:
+                    output_name = output.replace('output_','').replace('_output','')
+                    for array in getattr(param, output):
+                        if type(array) == tuple:
+                            array = '-'.join(map(str,array))
+                        arr = array.replace('/','\\')
+                        os.mkdir(os.path.join(path, f'N-{param.N}/{output_name}_{arr}_data'))
+                for output in output_structure['Scalar']['list']:
+                    output_name = output.replace('output_','').replace('_output','')
+                    if len(getattr(param, output)) > 0:
+                        os.mkdir(os.path.join(path, f'N-{param.N}/{output_name}_data'))
+
 
             elif reset:
                 for name in os.listdir(path):
@@ -106,25 +55,22 @@ def create_output_folders(param,            # Parameter object
                 os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}')}")
                 os.mkdir(os.path.join(path, f'number_{iter_num}'))
             os.mkdir(os.path.join(path, f'number_{iter_num}/model_params_data'))
-            for output in param.output_Cl:
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/Cl_{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/Cl_{output}_data'))
-            for output in param.output_Pk:
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/Pk_{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/Pk_{output}_data'))
-            for output in param.output_bg:
-                output = output.replace('/','\\')
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/bg_{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/bg_{output}_data'))
-            for output in param.output_th:
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/th_{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/th_{output}_data'))
-            if len(param.output_derived) > 0:
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/derived_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/derived_data'))
-            for output in param.extra_output:
-                os.system(f"rm -rf {os.path.join(path, f'number_{iter_num}/extra_{output}_data')}")
-                os.mkdir(os.path.join(path, f'number_{iter_num}/extra_{output}_data'))
+            for output in output_structure['1D']['list']:
+                output_name = output.replace('output_','').replace('_output','')
+                for array in getattr(param, output):
+                    arr = array.replace('/','\\')
+                    os.mkdir(os.path.join(path, f'number_{iter_num}/{output_name}_{arr}_data'))
+            for output in output_structure['2D']['list']:
+                output_name = output.replace('output_','').replace('_output','')
+                for array in getattr(param, output):
+                    if type(array) == tuple:
+                        array = '-'.join(map(str,array))
+                    arr = array.replace('/','\\')
+                    os.mkdir(os.path.join(path, f'number_{iter_num}/{output_name}_{arr}_data'))
+            for output in output_structure['Scalar']['list']:
+                output_name = output.replace('output_','').replace('_output','')
+                if len(getattr(param, output)) > 0:
+                    os.mkdir(os.path.join(path, f'number_{iter_num}/{output_name}_data'))
 
 
 def join_data_files(param     # Parameter object
@@ -137,10 +83,10 @@ def join_data_files(param     # Parameter object
 
 def combine_sets_of_data_files(new_data,   # Data file for the new data (destination for combined data)
                                old_data,   # Data file for the old data
-                               Pk=False,
+                               is2D=False,
                                no_header=False
                            ):
-    if not Pk:
+    if not is2D:
         with open(new_data,'a') as f:
             with open(old_data,'r') as g:
                 if no_header:
@@ -156,19 +102,19 @@ def combine_sets_of_data_files(new_data,   # Data file for the new data (destina
             old_lines = list(f)
 
         lines_separated = {}
-        z_keys = []
+        y_keys = []
         for line in new_lines[1:]+old_lines[1:]:
             if line[0] == "#":
-                z_keys.append(line)
-                if z_keys[-1] not in lines_separated:
-                    lines_separated[z_keys[-1]] = []
+                y_keys.append(line)
+                if y_keys[-1] not in lines_separated:
+                    lines_separated[y_keys[-1]] = []
             else:
-                lines_separated[z_keys[-1]].append(line)
+                lines_separated[y_keys[-1]].append(line)
         
-        N = int(len(z_keys)/2)
+        N = int(len(y_keys)/2)
         with open(new_data,'w') as f:
             f.write(new_lines[0])
-            for key in z_keys[:N]:
+            for key in y_keys[:N]:
                 f.write(key)
                 for line in lines_separated[key]:
                     f.write(line)
@@ -178,6 +124,8 @@ def combine_iterations_data(param,             # Parameter object
                             iter_num           # Current iteration number
                         ):
 
+    cosmic_solver = getattr(cosmic_solvers, cosmic_solvers.name_dict[param.cosmic_solver])(param)
+    output_structure = cosmic_solver.output_structures()
     path_i = os.path.join(CONNECT_PATH, f'data/{param.jobname}/number_{iter_num}')
     if iter_num-1 == 0:
         path_j = os.path.join(CONNECT_PATH, f'data/{param.jobname}/N-{param.N}')
@@ -185,80 +133,138 @@ def combine_iterations_data(param,             # Parameter object
         path_j = os.path.join(CONNECT_PATH, f'data/{param.jobname}/number_{iter_num-1}')
     combine_sets_of_data_files(os.path.join(path_i, 'model_params.txt'),
                                os.path.join(path_j, 'model_params.txt'))
-    if len(param.output_derived) > 0:
-        combine_sets_of_data_files(os.path.join(path_i, 'derived.txt'),
-                                   os.path.join(path_j, 'derived.txt'))
-    for output in param.output_Cl:
-        combine_sets_of_data_files(os.path.join(path_i, f'Cl_{output}.txt'),
-                                   os.path.join(path_j, f'Cl_{output}.txt'))
-    for output in param.output_Pk:
-        combine_sets_of_data_files(os.path.join(path_i, f'Pk_{output}.txt'),
-                                   os.path.join(path_j, f'Pk_{output}.txt'), Pk=True)
-    for output in param.output_bg:
-        output = output.replace('/','\\')
-        combine_sets_of_data_files(os.path.join(path_i, f'bg_{output}.txt'),
-                                   os.path.join(path_j, f'bg_{output}.txt'))
-    for output in param.output_th:
-        combine_sets_of_data_files(os.path.join(path_i, f'th_{output}.txt'),
-                                   os.path.join(path_j, f'th_{output}.txt'))
-    for output in param.extra_output:
-        combine_sets_of_data_files(os.path.join(path_i, f'extra_{output}.txt'),
-                                   os.path.join(path_j, f'extra_{output}.txt'), no_header=True)
 
+    for idx, output in enumerate(output_structure['Scalar']['list']):
+        output_name = output.replace('output_','').replace('_output','')
+        if len(getattr(param, output)) > 0:
+            combine_sets_of_data_files(os.path.join(path_i, f'{output_name}.txt'),
+                                       os.path.join(path_j, f'{output_name}.txt'))
+    for idx, output in enumerate(output_structure['1D']['list']):
+        output_name = output.replace('output_','').replace('_output','')
+        x_array = output_structure['1D']['x_arr'][idx]
+        if x_array is not None:
+            no_header = False
+        else:
+            no_header = True
+        for array in getattr(param, output):
+            arr = array.replace('/','\\')
+            combine_sets_of_data_files(os.path.join(path_i, f'{output_name}_{arr}.txt'),
+                                       os.path.join(path_j, f'{output_name}_{arr}.txt'), no_header=no_header)
+    for idx, output in enumerate(output_structure['2D']['list']):
+        output_name = output.replace('output_','').replace('_output','')
+        for array in getattr(param, output):
+            if type(array) == tuple:
+                array = '-'.join(map(str,array))
+            arr = array.replace('/','\\')
+            combine_sets_of_data_files(os.path.join(path_i, f'{output_name}_{arr}.txt'),
+                                       os.path.join(path_j, f'{output_name}_{arr}.txt'), is2D=True)
+
+
+
+def count_cpu_ids(cpu_ids):
+    """Count CPUs in a Slurm CPU_IDs expression, e.g. '24-27,30,32-34'."""
+    n = 0
+
+    for part in cpu_ids.split(','):
+        part = part.strip()
+
+        if not part:
+            continue
+
+        if '-' in part:
+            start, end = map(int, part.split('-', 1))
+            n += end - start + 1
+        else:
+            n += 1
+
+    return n
+
+
+def expand_nodes(nodespec):
+    """Expand a Slurm hostlist expression into individual node names."""
+    result = sp.run(
+        ['scontrol', 'show', 'hostnames', nodespec],
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
+        text=True,
+        check=True
+    )
+
+    return result.stdout.splitlines()
 
 
 def get_node_with_most_cpus():
+    job_id = os.environ['SLURM_JOB_ID']
 
-    job_info_list = sp.run('scontrol show job -d $SLURM_JOB_ID', shell=True, stdout=sp.PIPE).stdout.decode('utf-8')
+    result = sp.run(
+        ['scontrol', 'show', 'job', '-d', job_id],
+        stdout=sp.PIPE,
+        stderr=sp.PIPE,
+        text=True,
+        check=True
+    )
 
-    node_info_list=[]
-    for line in iter(job_info_list.splitlines()):
-        if 'CPU_IDs' in line:
-            node_info_list.append(line)
+    job_info = result.stdout
 
-    num_cpu={}
-    for i, line in enumerate(node_info_list):
-        node_name = line.split('Nodes=')[-1].split(' CPU_IDs')[0]
-        cpu_list  = line.split('CPU_IDs=')[-1].split(' Mem')[0].split(',')
-        n=0
-        for c in cpu_list:
-            if '-' in c:
-                cc=c.split('-')
-                n+=int(cc[1])-int(cc[0])+1
-            else:
-                n+=1
-        num_cpu[node_name] = n
+    num_cpu = {}
+
+    # Find every "Nodes=... CPU_IDs=... Mem=..." section.
+    pattern = re.compile(
+        r'Nodes=(.*?)\s+CPU_IDs=(.*?)\s+Mem='
+    )
+
+    for match in pattern.finditer(job_info):
+        nodespec = match.group(1)
+        cpu_ids = match.group(2)
+
+        # Count CPUs represented by CPU_IDs
+        ncpus = count_cpu_ids(cpu_ids)
+
+        # Expand e.g. s82n[14-16,21-26] into individual node names
+        nodes = expand_nodes(nodespec)
+
+        # The CPU_IDs specification applies to every node in this group
+        for node in nodes:
+            num_cpu[node] = ncpus
+
+    if not num_cpu:
+        raise RuntimeError("Could not find node/CPU information in scontrol output")
 
     max_node = max(num_cpu, key=num_cpu.get)
-    while '[' in max_node:
-        _ = num_cpu.pop(max_node)
-        max_node = max(num_cpu, key=num_cpu.get)
 
-    return max_node
+    return max_node, num_cpu[max_node]
 
 
-def get_covmat(path, param):
-    cov = np.loadtxt(path)
-    with open(path, 'r') as f:
-        header = f.readline().strip().replace('#','').replace(' ','').split(',')
+def get_covmat(param):
+    path = param.hypersphere_covmat
 
     params = param.parameters.keys()
     cov_new = np.zeros((len(params), len(params)))
-    indices = []
-    for i, p in enumerate(params):
-        try:
-            indices.append(header.index(p))
-        except ValueError:
-            indices.append(None)
-            cov_new[i,i] = ((param.parameters[p][1] - param.parameters[p][0])/10)**2
+    
+    if path is not None:
+        cov = np.loadtxt(path)
+        with open(path, 'r') as f:
+            header = f.readline().strip().replace('#','').replace(' ','').split(',')
 
-    for i, idx_i in enumerate(indices):
-        for j, idx_j in enumerate(indices):
-            if idx_i is not None and idx_j is not None:
-                cov_new[i,j] = cov[idx_i,idx_j]
+        indices = []
+        for i, p in enumerate(params):
+            try:
+                indices.append(header.index(p))
+            except ValueError:
+                indices.append(None)
+                cov_new[i,i] = ((param.parameters[p][1] - param.parameters[p][0])/10)**2
+
+        for i, idx_i in enumerate(indices):
+            for j, idx_j in enumerate(indices):
+                if idx_i is not None and idx_j is not None:
+                    cov_new[i,j] = cov[idx_i,idx_j]
 
     for i, p in enumerate(params):
         if p in param.sigma_guesses:
+            cov_new[i,:] = np.zeros(cov_new.shape[1])
+            cov_new[:,i] = np.zeros(cov_new.shape[0])
             cov_new[i,i] = param.sigma_guesses[p]**2
+        elif path is None:
+            cov_new[i,i] = ((param.parameters[p][1] - param.parameters[p][0])/10)**2
 
     return cov_new

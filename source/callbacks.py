@@ -1,8 +1,9 @@
 import tensorflow as tf
+import tf_keras
 import numpy as np
 from copy import deepcopy
 
-class CheckNaN(tf.keras.callbacks.Callback):
+class CheckNaN(tf_keras.callbacks.Callback):
     def __init__(self, Training_instance, success_param_name='training_success'):
         self.TI = Training_instance
         self.success_param_name= success_param_name
@@ -16,7 +17,7 @@ class CheckNaN(tf.keras.callbacks.Callback):
             print('\n\nTraining has been stopped due to NaN encounter and will restart now\n\n')
 
 
-class KeepBestEpoch(tf.keras.callbacks.Callback):
+class KeepBestEpoch(tf_keras.callbacks.Callback):
     def __init__(self):
         super().__init__()
         self.best_weights = None
@@ -36,7 +37,7 @@ class KeepBestEpoch(tf.keras.callbacks.Callback):
         print(f'with a loss of {self.best_loss} and this has been saved.')
 
 
-class EarlyStoppingAtMinLoss(tf.keras.callbacks.Callback):
+class EarlyStoppingAtMinLoss(tf_keras.callbacks.Callback):
     """Stop training when the loss is at its min, i.e. the loss stops decreasing.
 
   Arguments:
@@ -76,3 +77,8 @@ class EarlyStoppingAtMinLoss(tf.keras.callbacks.Callback):
     def on_train_end(self, logs=None):
         if self.stopped_epoch > 0:
             print("Epoch %05d: early stopping" % (self.stopped_epoch + 1))
+
+
+class ReduceLROnPlateau(tf_keras.callbacks.ReduceLROnPlateau):
+    def __init__(self, monitor='loss', factor=0.7, patience=30, min_lr=1e-7, verbose=1):
+        super().__init__(monitor=monitor, factor=factor, patience=patience, min_lr=min_lr, verbose=verbose)

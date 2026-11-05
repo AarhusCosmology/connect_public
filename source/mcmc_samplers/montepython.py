@@ -15,7 +15,7 @@ class montepython(MCMC_base_class):
     def __init__(self, param, CONNECT_PATH):
         super(montepython, self).__init__(param, CONNECT_PATH)
         path = {}
-        with open(os.path.join(CONNECT_PATH, 'mcmc_plugin/connect.conf'), 'r') as f:
+        with open(os.path.join(CONNECT_PATH, 'mcmc_plugin/config_files/connect.conf'), 'r') as f:
             for line in f:
                 exec(line)
         self.montepython_path = path['montepython']
@@ -32,7 +32,8 @@ class montepython(MCMC_base_class):
 
         output_dir = f'{self.CONNECT_PATH}/data/{self.param.jobname}/number_{iteration}'
 
-        sp.run(f"{self.CONNECT_PATH}/source/mcmc_samplers/run_scripts/run_montepython_iteration.sh {output_dir} {MP_param_file} {os.path.join(self.CONNECT_PATH,'mcmc_plugin/connect.conf')} {self.param.temperature} {self.param.mcmc_tol} {self.mcmc_node}", shell=True, cwd=self.montepython_path)
+        sp.run(f"{os.path.join(self.CONNECT_PATH,'source/mcmc_samplers/run_scripts/run_montepython_iteration.sh')} {output_dir} {MP_param_file} {os.path.join(self.CONNECT_PATH,'mcmc_plugin/config_files/connect.conf')} {self.param.temperature} {self.param.mcmc_tol} {self.mcmc_node} {self.param.N_max_points}", shell=True, cwd=self.montepython_path)
+        print(f'MCMC sampling stopped since R-1 less than {self.param.mcmc_tol} has been reached.', flush=True)
 
     
     def get_number_of_accepted_steps(self, iteration):
@@ -102,6 +103,10 @@ class montepython(MCMC_base_class):
                                 lkl = 'Planck_highl_TTTEEE_lite'
                             elif lkl == 'Planck_lowl_EE':
                                 lkl = 'Planck_lowl_EE_connect'
+                            elif lkl.startswith('Planck') and lkl.endswith('_tf'):
+                                lkl = 'Planck_lite_connect,'
+                                if lkl in experiments_line:
+                                    continue
                             experiments_line += f"'{lkl}', "
                         experiments_line = experiments_line[:-2] + ']'
                         g.write(experiments_line)
@@ -179,7 +184,7 @@ class montepython(MCMC_base_class):
             for par in self.param.parameters:
                 for out in output[index:]:
                     if par == out[-len(par):] and out[-len(par)-1] == ' ':
-                        Rm1 = np.float32(re.findall("\d+\.\d+", out)[0])
+                        Rm1 = np.float32(re.findall(r"\d+\.\d+", out)[0])
                         if Rm1 > largest_Rm1:
                             largest_Rm1 = Rm1
                         Rm1_line += '\t' + str(Rm1)
@@ -204,12 +209,30 @@ class montepython(MCMC_base_class):
             raise NotImplementedError(err_msg)
         else:
             print(f'Your version of MontePython is {version}', flush=True)
-        if np.float64('.'.join(version.split('.')[:2])) > 3.5:
-            libs = ''.join(os.listdir(os.path.join(self.CONNECT_PATH, 'mcmc_plugin/python/build')))
+        with open(os.path.join(self.montepython_path, 'montepython/initialise.py'),'r') as f:
+            init_file_contents = f.readlines()
+        if (np.float64('.'.join(version.split('.')[:2])) > 3.5
+        and " and elem.find(sys.version)!=-1" in ''.join(init_file_contents)):
+            libs = ''.join(os.listdir(os.path.join(self.CONNECT_PATH, 'mcmc_plugin/cosmo_wrapper/python/build')))
             if libs.find(sys.version) == -1:
-                os.mkdir(os.path.join(self.CONNECT_PATH, f'mcmc_plugin/python/build/lib.{sys.version}'))
-                os.link(os.path.join(self.CONNECT_PATH, 'mcmc_plugin/python/build/lib.connect_disguised_as_classy/classy.py'),
-                        os.path.join(self.CONNECT_PATH, f'mcmc_plugin/python/build/lib.{sys.version}/classy.py'))
+                os.mkdir(os.path.join(self.CONNECT_PATH,
+                                      f'mcmc_plugin/cosmo_wrapper/python/build/lib.{sys.version}')
+                         )
+                os.link(os.path.join(self.CONNECT_PATH,
+                                     'mcmc_plugin/cosmo_wrapper/python/build/lib.connect_disguised_as_classy/classy.py'),
+                        os.path.join(self.CONNECT_PATH,
+                                     f'mcmc_plugin/cosmo_wrapper/python/build/lib.{sys.version}/classy.py')
+                        )
+                os.link(os.path.join(self.CONNECT_PATH,
+                                     'mcmc_plugin/cosmo_wrapper/python/build/lib.connect_disguised_as_classy/class_module.py'),
+                        os.path.join(self.CONNECT_PATH,
+                                     f'mcmc_plugin/cosmo_wrapper/python/build/lib.{sys.version}/class_module.py')
+                        )
+                os.link(os.path.join(self.CONNECT_PATH,
+                                     'mcmc_plugin/cosmo_wrapper/python/build/lib.connect_disguised_as_classy/camb_module.py'),
+                        os.path.join(self.CONNECT_PATH,
+                                     f'mcmc_plugin/cosmo_wrapper/python/build/lib.{sys.version}/camb_module.py')
+                        )
 
 
 

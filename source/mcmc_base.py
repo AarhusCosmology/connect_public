@@ -23,10 +23,12 @@ class MCMC_base_class():
         self.param = param
         self.CONNECT_PATH = CONNECT_PATH
         slurm_bool = int(sp.run('if [ -z $SLURM_NPROCS ]; then echo 0; else echo 1; fi', shell=True, stdout=sp.PIPE).stdout.decode('utf-8'))
-        self.mcmc_node = None
         self.temperature = 0.0
         if slurm_bool:
-            self.mcmc_node = get_node_with_most_cpus()
+            self.mcmc_node, self.num_cpus = get_node_with_most_cpus()
+        else:
+            self.mcmc_node = None
+            self.num_cpus = os.cpu_count()
         os.environ["OMPI_MCA_rmaps_base_oversubscribe"] = "1"
 
 
